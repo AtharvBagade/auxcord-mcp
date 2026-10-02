@@ -116,7 +116,7 @@ class SpotifyClient:
             )
             raise
 
-        if not expect_json or response.status_code in (202, 204) or not len(response.text):
+        if not expect_json or response.status_code in (202, 204) or not response.text.strip():
             return {}
         try:
             return response.json()

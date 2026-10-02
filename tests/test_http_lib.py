@@ -26,10 +26,9 @@ async def test_async_http_client_request_methods():
     mock_httpx.is_closed = False
     mock_httpx.aclose = AsyncMock()
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"key": "value"}
-    mock_httpx.request.return_value = mock_response
+    mock_httpx.request.return_value = httpx.Response(
+        200, json={"key": "value"}, request=httpx.Request("GET", "https://api.example.com/json-endpoint")
+    )
 
     client = HTTPClient(base_url="https://api.example.com", client=mock_httpx)
 
@@ -74,10 +73,9 @@ def test_sync_http_client_request_methods():
     mock_httpx = MagicMock(spec=httpx.Client)
     mock_httpx.is_closed = False
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"sync": "ok"}
-    mock_httpx.request.return_value = mock_response
+    mock_httpx.request.return_value = httpx.Response(
+        200, json={"sync": "ok"}, request=httpx.Request("POST", "https://api.example.com/sync-json")
+    )
 
     client = SyncHTTPClient(base_url="https://api.example.com", client=mock_httpx)
 

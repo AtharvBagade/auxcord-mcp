@@ -1,174 +1,133 @@
 # Spotify MCP Server
 
-An open-source **Model Context Protocol (MCP) Server** exposing the Spotify Web API directly to AI assistants (Claude Desktop, Cursor, Antigravity, and autonomous LLM agents).
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![MCP](https://img.shields.io/badge/MCP-stdio%20%7C%20streamable%20HTTP-green)
+![Version](https://img.shields.io/badge/version-0.1.0-lightgrey)
 
----
+A Model Context Protocol (MCP) server that gives AI assistants (Claude Desktop, Cursor, Antigravity, or your own agents) control over Spotify: playback, devices, the queue, search, your library, and playlists.
 
-## 🚦 Implementation Status & Feature Roadmap
+## Highlights
 
-Here is an overview of what is **currently implemented** versus what is **in the pipeline (planned)**.
+- **32 tools** covering playback, devices, the queue, catalog search, your listening history and library, and playlist management, including custom cover art.
+- **6 ambient resources** (`spotify://...`) that give the assistant context such as what's playing, your queue and your taste profile, without a tool call.
+- **Agent-friendly errors.** Failures come back as structured JSON with an `error_code` and recovery guidance (for example, "no active device, call `spotify_get_available_devices`") instead of raw HTTP errors. Invalid arguments are rejected before reaching Spotify.
+- **Compact responses.** Spotify payloads are trimmed to the fields an assistant actually needs, so they use less of its context window.
+- **Works locally or over HTTP.** It runs over stdio for desktop clients or as a stateless streamable-HTTP server, and handles OAuth 2.0 PKCE login and token refresh for you.
 
-### ✅ Already Implemented
+## Overview
 
-| Category | Component / Tool / Resource | Status | Description |
-| :--- | :--- | :---: | :--- |
-| **Authentication & Core** | **OAuth 2.0 PKCE Flow** | ✅ Live | Automatic local callback server (`http://127.0.0.1:8888/callback`), token caching (`.spotify_token.json`), and auto-refresh. |
-| | **HTTP Library Layer** | ✅ Live | Async (`HTTPClient`) & sync (`SyncHTTPClient`) connection-pooled clients with error handling and retry logic. |
-| **Playback Control** | `spotify_play` | ✅ Live | Start/resume playback (supports `context_uri`, `uris`, `offset`, `position_ms`). |
-| | `spotify_pause` | ✅ Live | Pause active playback. |
-| | `spotify_skip_to_next` | ✅ Live | Skip to the next track. |
-| | `spotify_skip_to_previous` | ✅ Live | Skip to the previous track. |
-| | `spotify_seek_to_position` | ✅ Live | Seek to specific position in milliseconds. |
-| | `spotify_set_volume` | ✅ Live | Set volume level (0–100%). |
-| | `spotify_toggle_shuffle` | ✅ Live | Toggle shuffle mode on/off. |
-| | `spotify_set_repeat_mode` | ✅ Live | Set repeat mode (`off`, `track`, `context`). |
-| | `spotify_get_playback_state` | ✅ Live | Inspect active device, progress, shuffle/repeat state. |
-| | `spotify_get_currently_playing` | ✅ Live | Fetch high-signal metadata of currently playing track/episode. |
-| **Device Management** | `spotify_get_available_devices` | ✅ Live | List connected Spotify Connect devices (desktop, mobile, speaker). |
-| | `spotify_transfer_playback` | ✅ Live | Transfer playback session to a target `device_id`. |
-| **Queue Control** | `spotify_get_queue` | ✅ Live | Inspect current active playback queue. |
-| | `spotify_add_to_queue` | ✅ Live | Append track or episode URI to the user's queue. |
-| **Catalog & Search** | `spotify_search_catalog` | ✅ Live | Search across tracks, artists, albums, playlists, shows, audiobooks. |
-| | `spotify_get_artist` | ✅ Live | Fetch artist name, URI, Spotify URL, and image. |
-| | `spotify_get_album` | ✅ Live | Get album details and track listings. |
-| **User & Library** | `spotify_get_user_profile` | ✅ Live | Fetch user profile info and subscription tier (Premium/Free). |
-| | `spotify_get_top_tracks` | ✅ Live | Fetch user's top listened tracks over selectable time ranges. |
-| | `spotify_get_top_artists` | ✅ Live | Fetch user's top listened artists over selectable time ranges. |
-| | `spotify_get_recently_played` | ✅ Live | Fetch recent listening history with timestamps. |
-| | `spotify_get_saved_tracks` | ✅ Live | Inspect user's saved/liked tracks library. |
-| **Ambient MCP Resources** | `spotify://user/profile` | ✅ Live | Ambient user profile & subscription tier context. |
-| | `spotify://user/top-tracks` | ✅ Live | Ambient top tracks listening context. |
-| | `spotify://user/top-artists` | ✅ Live | Ambient top artists taste profile context. |
-| | `spotify://player/current` | ✅ Live | Real-time active player state, device, and track metadata. |
-| | `spotify://player/queue` | ✅ Live | Real-time snapshot of the playback queue. |
+The server wraps the [Spotify Web API](https://developer.spotify.com/documentation/web-api) as MCP tools and resources. An assistant connected to it can handle requests like "queue three upbeat Daft Punk tracks", "make a playlist from my top tracks this month" or "move playback to my phone".
 
----
+It signs in as your own Spotify account, using a Spotify developer app you create (see [Installation](#installation)). Playback control requires Spotify Premium.
 
-### ⏳ In the Pipeline (Roadmap)
+### Tools
 
-The following capabilities are scheduled across upcoming milestones:
+| Area | Tools |
+|---|---|
+| Playback | `spotify_play`, `spotify_pause`, `spotify_skip_to_next`, `spotify_skip_to_previous`, `spotify_seek_to_position`, `spotify_set_volume`, `spotify_toggle_shuffle`, `spotify_set_repeat_mode`, `spotify_get_playback_state`, `spotify_get_currently_playing` |
+| Devices | `spotify_get_available_devices`, `spotify_transfer_playback` |
+| Queue | `spotify_get_queue`, `spotify_add_to_queue` |
+| Catalog | `spotify_search_catalog`, `spotify_get_artist`, `spotify_get_album` |
+| User and library | `spotify_get_user_profile`, `spotify_get_top_tracks`, `spotify_get_top_artists`, `spotify_get_recently_played`, `spotify_get_saved_tracks` |
+| Playlists | `spotify_create_playlist`, `spotify_get_user_playlists`, `spotify_get_playlist`, `spotify_get_playlist_items`, `spotify_add_tracks_to_playlist`, `spotify_remove_tracks_from_playlist`, `spotify_reorder_playlist_tracks`, `spotify_replace_playlist_tracks`, `spotify_update_playlist_details`, `spotify_upload_playlist_cover` |
 
-- **🚩 Milestone 4: Full Playlist Management & Custom Cover Art**
-  - [ ] `spotify_create_playlist` (Create playlists with title & description; visibility must be set in the Spotify app)
-  - [ ] `spotify_get_user_playlists` (List user's created and followed playlists)
-  - [ ] `spotify_get_playlist` & `spotify_get_playlist_items` (Retrieve playlist tracks and metadata)
-  - [ ] `spotify_add_tracks_to_playlist` & `spotify_remove_tracks_from_playlist` (Manage tracklist)
-  - [ ] `spotify_reorder_playlist_tracks` (Reorder tracks for BPM/energy flow)
-  - [ ] `spotify_update_playlist_details` (Edit name, description, collaborative status)
-  - [ ] `spotify_upload_playlist_cover` (Upload custom base64 JPEG cover art)
-  - [ ] Ambient Resource: `spotify://playlist/{playlist_id}`
+Resources: `spotify://user/profile`, `spotify://user/top-tracks`, `spotify://user/top-artists`, `spotify://player/current`, `spotify://player/queue`, `spotify://playlist/{playlist_id}`.
 
-- **🚩 Milestone 5: Audio Features, Recommendations & Multi-Step Prompts**
-  - [ ] `spotify_get_audio_features` & `spotify_get_audio_analysis` (Acoustic metrics: BPM, key, valence, energy, danceability)
-  - [ ] `spotify_get_recommendations` (Multi-target acoustic recommendation engine with genre/artist/track seeds)
-  - [ ] `spotify_get_available_genre_seeds` (List available recommendation genre seeds)
-  - [ ] **MCP Prompts**:
-    - `create_mood_playlist`: Translate natural language moods into acoustic targets & playlists.
-    - `smart_queue_dj`: Auto-queue tracks matching current listening vibe.
-    - `listening_dna_report`: Deep acoustic breakdown of user taste profile.
-    - `playlist_cleaner_and_organizer`: Re-sort playlists by harmonic key and energy.
+### Known Spotify API limitations
 
-- **🚩 Milestone 6: Multi-Transport Packaging & Client Configurations**
-  - [ ] STDIO and HTTP/SSE transport modes.
-  - [ ] Pre-packaged configuration templates for **Claude Desktop**, **Cursor**, and **Antigravity**.
-  - [ ] End-to-end integration test suite and PyPI distribution package.
+These are limits on Spotify's side, not bugs in this server. Each was confirmed against the live Web API or [Spotify's changelog](https://developer.spotify.com/documentation/web-api/references/changes/february-2026).
 
----
+- **Playlist visibility can't be set through the API.** Spotify accepts `public: false` on create and update, but the playlist stays public. For that reason the playlist tools don't offer a `public` parameter. Set visibility in the Spotify app. ([community thread](https://community.spotify.com/t5/Spotify-for-Developers/Api-to-create-a-private-playlist-doesn-t-work/m-p/6030637/highlight/true))
+- **Playlist contents are only available for playlists you own or collaborate on.** For other playlists, `spotify_get_playlist` returns metadata with an explanatory `note`, and `spotify_get_playlist_items` returns a `PLAYLIST_CONTENTS_UNAVAILABLE` error.
+- **Artist and track metadata is reduced.** Spotify no longer returns `genres`, `popularity` or `followers` on artists, `popularity` on tracks, or `label` / `popularity` on albums. Artist top tracks are no longer available, so use `spotify_search_catalog` with `artist:"Name"` instead.
+- **Search returns at most 10 results per type** (default 5), and `limit + offset` can't exceed 1000.
+- **Playlist search hides some results.** Spotify returns some playlist results as `null` (about 3 in 10 in live testing). `spotify_search_catalog` drops them and reports how many it dropped in `playlists_hidden_by_spotify`. If a page comes back mostly or entirely hidden, try the next `offset`.
+- **Playlist track counts can lag.** Right after tracks are added, `spotify_get_user_playlists` may report a stale `tracks_total`. `spotify_get_playlist` reports the current count.
 
-## ⚠️ Known Spotify API Limitations
+## Usage
 
-These are Spotify-side behaviours, not bugs in this server. Each was confirmed against the live Web API or Spotify's changelog.
+After [installing](#installation), add the server to your MCP client. For Claude Desktop, edit `claude_desktop_config.json`:
 
-- **Playlist visibility can't be set through the API.** Spotify accepts `public: false` on create (`POST /me/playlists`) and update (`PUT /playlists/{id}`) with a `2xx`, but the playlist stays public. The create response even echoes `public: false`. Name and description updates apply normally. For this reason `spotify_create_playlist` and `spotify_update_playlist_details` don't offer a `public` parameter. Set visibility in the Spotify app. ([community thread](https://community.spotify.com/t5/Spotify-for-Developers/Api-to-create-a-private-playlist-doesn-t-work/m-p/6030637/highlight/true))
-- **Playlist contents are only available for playlists you own or collaborate on.** For other playlists, `GET /playlists/{id}` returns metadata only (no `items`) and `GET /playlists/{id}/items` returns `403`. `spotify_get_playlist` returns the metadata with an explanatory `note`, and `spotify_get_playlist_items` returns a `PLAYLIST_CONTENTS_UNAVAILABLE` error.
-- **Artist and track metadata is reduced.** Spotify no longer returns `genres`, `popularity` or `followers` on artists, `popularity` on tracks, or `label` / `popularity` on albums, so the tools don't either. `GET /artists/{id}/top-tracks` now returns `403` and has no replacement, so there is no artist top-tracks tool. Use `spotify_search_catalog` with `artist:"Name"` instead. ([changelog](https://developer.spotify.com/documentation/web-api/references/changes/february-2026))
-- **Playlist search hides some results.** Spotify returns some playlist search results as `null` (about 3 in 10 in live testing) and still counts them in `total`. `spotify_search_catalog` drops them and reports how many it dropped in `playlists_hidden_by_spotify`. A page can be mostly or entirely hidden, so try the next `offset` before concluding there are no matches.
-- **Playlist track counts can lag.** Right after tracks are added, `GET /me/playlists` may still report the old `items.total`, so `tracks_total` from `spotify_get_user_playlists` can be stale. `spotify_get_playlist` reports the current count.
+```json
+{
+  "mcpServers": {
+    "spotify": {
+      "command": "/path/to/spotify-mcp-server/.venv/bin/python",
+      "args": ["/path/to/spotify-mcp-server/main.py"]
+    }
+  }
+}
+```
 
----
+Restart the client and ask something like *"What's playing right now? Add two similar tracks to my queue."*
 
-## 🔑 Spotify Developer Setup (Client ID & Secret)
-
-To use this MCP server, you need to register a free developer application with Spotify to obtain your **Client ID** and **Client Secret**. Follow the steps below:
-
-### Step 1: Open the Spotify Developer Dashboard
-1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
-2. Log in with your standard Spotify account.
-
-### Step 2: Create a New Application
-1. Click the **"Create app"** button in the top right.
-2. Fill out the application details:
-   - **App name**: e.g., `Spotify MCP Server` (or any name you prefer).
-   - **App description**: e.g., `MCP Server bridging Spotify API with AI assistants`.
-   - **Redirect URIs**: Enter `http://127.0.0.1:8888/callback` and click **Add**.
-     > ⚠️ **Important**: The redirect URI must match `http://127.0.0.1:8888/callback` exactly (including the port and path).
-   - **Which API/SDKs are you planning to use?**: Select/check **Web API**.
-3. Check the checkbox agreeing to the Spotify Developer Terms of Service and click **Save**.
-
-### Step 3: Copy Your Client ID & Client Secret
-1. On your newly created app page, click **Settings** (top right) or go to the **Basic Information** tab.
-2. You will see your **Client ID**. Copy it.
-3. Click **"View client secret"** to reveal your **Client Secret**. Copy it.
-
-### Step 4: (Optional) Add User Accounts in Development Mode
-By default, Spotify developer apps start in **Development Mode**:
-- Your own Spotify account (the app creator) is automatically authorized.
-- If you want other Spotify accounts to use your app, go to **Settings** > **User Management** and add their Spotify email addresses.
-
----
-
-## ⚙️ Environment Configuration
-
-1. Create a `.env` file in the root of the project (copy from `.env.example`):
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Add your credentials into `.env`:
-   ```env
-   SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
-   SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-   SPOTIFY_REDIRECT_URI="http://127.0.0.1:8888/callback"
-
-   # Optional Settings
-   SPOTIFY_TOKEN_CACHE_PATH=".spotify_token.json"
-   MCP_SERVER_NAME="Spotify MCP Server"
-   ```
-
----
-
-## 🚀 Installation & Running
+To serve over streamable HTTP instead, for remote or multi-client setups:
 
 ```bash
-# 1. Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+python main.py --transport http   # serves http://127.0.0.1:8000/mcp
+```
 
-# 2. Install dependencies (including development dependencies)
+Then point your client at `http://127.0.0.1:8000/mcp`. Use `--host` and `--port` to change the address.
+
+## Installation
+
+You need Python 3.10 or newer and a Spotify account (Premium for playback control).
+
+**1. Create a Spotify developer app**
+
+1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and click **Create app**.
+2. Add the redirect URI `http://127.0.0.1:8888/callback`. It must match exactly, including the port and path.
+3. Under **Which API/SDKs are you planning to use?**, select **Web API**, then save.
+4. From the app's **Settings**, copy the **Client ID** and **Client Secret**.
+
+New apps start in Development Mode: your own account works right away, and other accounts must be added under **Settings > User Management**.
+
+**2. Install the server**
+
+```bash
+git clone https://github.com/AtharvBagade/spotify-mcp-server.git
+cd spotify-mcp-server
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+**3. Configure credentials**
+
+```bash
+cp .env.example .env
+```
+
+Then fill in `.env`:
+
+```env
+SPOTIFY_CLIENT_ID="your_client_id"
+SPOTIFY_CLIENT_SECRET="your_client_secret"
+SPOTIFY_REDIRECT_URI="http://127.0.0.1:8888/callback"
+
+# Optional (defaults shown)
+SPOTIFY_TOKEN_CACHE_PATH=".spotify_token.json"
+MCP_SERVER_NAME="Spotify MCP Server"
+MCP_HOST="127.0.0.1"
+MCP_PORT=8000
+LOG_LEVEL="INFO"
+```
+
+**4. Sign in once**
+
+```bash
+python -c "from src.auth import SpotifyAuthManager; from src.config import load_settings; SpotifyAuthManager(load_settings()).get_valid_access_token()"
+```
+
+A browser window opens for you to sign in to Spotify. The token is cached in `.spotify_token.json` and refreshed automatically after that. If you skip this step, the same sign-in happens on the first tool call. Logs go to stderr; set `LOG_LEVEL=DEBUG` to include full tracebacks.
+
+## Feedback and Contributing
+
+Bug reports and feature requests are welcome in [GitHub Issues](https://github.com/AtharvBagade/spotify-mcp-server/issues). Please include the tool name, its arguments and the `error_code` you got back.
+
+To work on the server, install the development dependencies and run the tests:
+
+```bash
 pip install -e ".[dev]"
-
-# 3. Run the MCP server entrypoint
-python3 main.py
-```
-
-On your first run or when authorization is needed:
-- A browser window will automatically open asking you to log into Spotify and authorize the requested permissions.
-- The local server on port `8888` will capture the OAuth callback and save the cached tokens to `.spotify_token.json`.
-- Subsequent runs will automatically reuse and refresh the token in the background.
-
----
-
-## 🧪 Testing
-
-Run the test suite using `pytest`:
-
-```bash
 pytest
+ruff check src tests
 ```
-
----
-
-## 📖 Specifications & Architecture
-
-- [PRD.md](PRD.md): Full product requirements document, API endpoint mapping, and milestone breakdowns.
-- [CONTEXT.md](CONTEXT.md): Domain language, high-signal resource representations, and error recovery definitions.

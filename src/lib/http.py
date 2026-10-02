@@ -130,7 +130,7 @@ class HTTPClient:
         """Execute request and parse JSON response, raising for HTTP status errors."""
         response = await self.request(method, url, **kwargs)
         response.raise_for_status()
-        if response.status_code in (202, 204) or not len(response.text):
+        if response.status_code in (202, 204) or not response.text.strip():
             return {}
         try:
             return response.json()
@@ -243,7 +243,7 @@ class SyncHTTPClient:
         """Execute sync request and parse JSON response, raising for HTTP status errors."""
         response = self.request(method, url, **kwargs)
         response.raise_for_status()
-        if response.status_code in (202, 204) or not len(response.text):
+        if response.status_code in (202, 204) or not response.text.strip():
             return {}
         try:
             return response.json()
