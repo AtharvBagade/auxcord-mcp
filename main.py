@@ -40,6 +40,7 @@ def main():
             transport="http",
             host=args.host or settings.mcp_host,
             port=args.port or settings.mcp_port,
+            stateless_http=True,
         )
 
 

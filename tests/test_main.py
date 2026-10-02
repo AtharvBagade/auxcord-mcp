@@ -35,7 +35,9 @@ def test_transport_http_uses_settings_defaults(mock_mcp_run, mock_set_transport_
         main.main()
 
     mock_set_transport_mode.assert_called_once_with("http")
-    mock_mcp_run.assert_called_once_with(transport="http", host="127.0.0.1", port=8000)
+    mock_mcp_run.assert_called_once_with(
+        transport="http", host="127.0.0.1", port=8000, stateless_http=True
+    )
 
 
 def test_transport_http_host_port_override_settings(mock_mcp_run, mock_set_transport_mode):
@@ -46,7 +48,9 @@ def test_transport_http_host_port_override_settings(mock_mcp_run, mock_set_trans
     ), patch.object(main, "load_settings", return_value=mock_settings):
         main.main()
 
-    mock_mcp_run.assert_called_once_with(transport="http", host="0.0.0.0", port=9999)
+    mock_mcp_run.assert_called_once_with(
+        transport="http", host="0.0.0.0", port=9999, stateless_http=True
+    )
 
 
 def test_invalid_transport_raises_system_exit(mock_mcp_run, mock_set_transport_mode):

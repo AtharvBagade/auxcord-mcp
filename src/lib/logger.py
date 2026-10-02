@@ -21,6 +21,8 @@ import time
 import traceback
 from typing import Any, Awaitable, Callable, TypeVar
 
+from src.config import load_settings
+
 _LOGGER_NAME = "spotify_mcp"
 
 # Module-level transport mode, set once by main.py / mcp_server.py before
@@ -41,8 +43,11 @@ def get_transport_mode() -> str:
 
 
 def _build_logger() -> logging.Logger:
+    level_name = load_settings().log_level.upper()
+    level = getattr(logging, level_name, logging.INFO)
+
     log = logging.getLogger(_LOGGER_NAME)
-    log.setLevel(logging.INFO)
+    log.setLevel(level)
     if not log.handlers:  # idempotent -- safe if this module is imported multiple times
         handler = logging.StreamHandler(stream=sys.stderr)
         formatter = logging.Formatter(
@@ -113,6 +118,9 @@ def log_tool_calls(fn: F) -> F:
             return result
         except Exception as exc:  # noqa: BLE001 -- must log any propagating exception
             duration_ms = (time.monotonic() - start) * 1000
+            # Full stack trace only at DEBUG -- at INFO+ this would spam stderr
+            # with noise for errors tools already handle/report structurally.
+            trace = traceback.format_exc() if logger.isEnabledFor(logging.DEBUG) else "(set LOG_LEVEL=DEBUG for traceback)"
             logger.error(
                 "TOOL_CALL_FAILED mode=%s tool=%s duration_ms=%.1f\n"
                 "    args: %s\n"
@@ -126,7 +134,7 @@ def log_tool_calls(fn: F) -> F:
                 kwargs,
                 type(exc).__name__,
                 exc,
-                traceback.format_exc(),
+                trace,
             )
             raise
 
