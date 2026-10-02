@@ -58,7 +58,6 @@ def _prune_track(item: dict[str, Any] | None) -> dict[str, Any] | None:
         "artists": [a.get("name") for a in item.get("artists", [])],
         "album": item.get("album", {}).get("name"),
         "duration_ms": item.get("duration_ms"),
-        "popularity": item.get("popularity"),
         "uri": item.get("uri"),
         "is_playable": item.get("is_playable", True),
     }

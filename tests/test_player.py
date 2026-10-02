@@ -165,6 +165,44 @@ async def test_playback_controls_pause_next_previous():
 
 
 @pytest.mark.asyncio
+async def test_control_tools_report_success_on_non_json_200_body():
+    """BUG-1: a 200 with a non-JSON body from Spotify must surface as success, not EXECUTION_ERROR."""
+    from src.client import SpotifyClient
+
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.text = "1a2b3c4d5e"
+    resp.content = resp.text.encode()
+    resp.raise_for_status.return_value = None
+    resp.json.side_effect = json.JSONDecodeError("Extra data", resp.text, 1)
+
+    mock_auth_manager = MagicMock()
+    mock_auth_manager.get_valid_access_token.return_value = "mock_token"
+    mock_http = AsyncMock()
+    mock_http.request = AsyncMock(return_value=resp)
+    client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
+
+    with (
+        patch("src.tools.playback.get_spotify_client", return_value=client),
+        patch("src.tools.queue.get_spotify_client", return_value=client),
+    ):
+        results = [
+            await spotify_pause(),
+            await spotify_skip_to_next(),
+            await spotify_skip_to_previous(),
+            await spotify_seek_to_position(30000),
+            await spotify_toggle_shuffle(True),
+            await spotify_set_repeat_mode("track"),
+            await spotify_add_to_queue("spotify:track:123"),
+        ]
+
+    for res in results:
+        assert json.loads(res)["status"] == "success", res
+    # Each command hits Spotify exactly once -- no retry, no duplicate side effects.
+    assert mock_http.request.await_count == len(results)
+
+
+@pytest.mark.asyncio
 async def test_playback_controls_seek_volume_shuffle_repeat():
     """Test seek, volume, shuffle, and repeat mode tools."""
     with patch("src.tools.playback.get_spotify_client") as mock_get_client:
@@ -223,7 +261,6 @@ async def test_spotify_get_playback_state_and_currently_playing():
             "artists": [{"name": "The Weeknd"}],
             "album": {"name": "After Hours", "available_markets": ["US", "GB", "DE"]},
             "duration_ms": 200000,
-            "popularity": 95,
             "uri": "spotify:track:t1",
             "available_markets": ["US", "GB", "CA", "DE", "FR"],
         },
@@ -247,6 +284,7 @@ async def test_spotify_get_playback_state_and_currently_playing():
         assert state_data["progress_ms"] == 35000
         assert state_data["item"]["name"] == "Blinding Lights"
         assert "available_markets" not in state_data["item"]  # High-signal pruned
+        assert "popularity" not in state_data["item"]  # Removed by Spotify
         assert state_data["device"]["name"] == "MacBook Pro"
 
         # Currently playing
