@@ -2,6 +2,7 @@
 
 from fastmcp import FastMCP
 from src.config import load_settings
+from src.lib.logger import log_tool_calls, set_transport_mode
 from src.tools.users import (
     spotify_get_user_profile,
     spotify_get_top_tracks,
@@ -53,51 +54,61 @@ settings = load_settings()
 # Initialize FastMCP Server
 mcp = FastMCP(name=settings.mcp_server_name)
 
+
+def register_tool(mcp: FastMCP, fn):
+    """Wrap fn with call logging (hook B) then register it with FastMCP."""
+    mcp.add_tool(log_tool_calls(fn))
+
+
 # Register Modular Tools - Users & Library
-mcp.add_tool(spotify_get_user_profile)
-mcp.add_tool(spotify_get_top_tracks)
-mcp.add_tool(spotify_get_top_artists)
-mcp.add_tool(spotify_get_recently_played)
-mcp.add_tool(spotify_get_saved_tracks)
+register_tool(mcp, spotify_get_user_profile)
+register_tool(mcp, spotify_get_top_tracks)
+register_tool(mcp, spotify_get_top_artists)
+register_tool(mcp, spotify_get_recently_played)
+register_tool(mcp, spotify_get_saved_tracks)
 
 # Register Modular Tools - Catalog Search & Metadata
-mcp.add_tool(spotify_search_catalog)
-mcp.add_tool(spotify_get_artist)
-mcp.add_tool(spotify_get_artist_top_tracks)
-mcp.add_tool(spotify_get_album)
+register_tool(mcp, spotify_search_catalog)
+register_tool(mcp, spotify_get_artist)
+register_tool(mcp, spotify_get_artist_top_tracks)
+register_tool(mcp, spotify_get_album)
 
 # Register Modular Tools - Playback Control & Player State
-mcp.add_tool(spotify_play)
-mcp.add_tool(spotify_pause)
-mcp.add_tool(spotify_skip_to_next)
-mcp.add_tool(spotify_skip_to_previous)
-mcp.add_tool(spotify_seek_to_position)
-mcp.add_tool(spotify_set_volume)
-mcp.add_tool(spotify_toggle_shuffle)
-mcp.add_tool(spotify_set_repeat_mode)
-mcp.add_tool(spotify_get_playback_state)
-mcp.add_tool(spotify_get_currently_playing)
+register_tool(mcp, spotify_play)
+register_tool(mcp, spotify_pause)
+register_tool(mcp, spotify_skip_to_next)
+register_tool(mcp, spotify_skip_to_previous)
+register_tool(mcp, spotify_seek_to_position)
+register_tool(mcp, spotify_set_volume)
+register_tool(mcp, spotify_toggle_shuffle)
+register_tool(mcp, spotify_set_repeat_mode)
+register_tool(mcp, spotify_get_playback_state)
+register_tool(mcp, spotify_get_currently_playing)
 
 # Register Modular Tools - Devices
-mcp.add_tool(spotify_get_available_devices)
-mcp.add_tool(spotify_transfer_playback)
+register_tool(mcp, spotify_get_available_devices)
+register_tool(mcp, spotify_transfer_playback)
 
 # Register Modular Tools - Queue
-mcp.add_tool(spotify_get_queue)
-mcp.add_tool(spotify_add_to_queue)
+register_tool(mcp, spotify_get_queue)
+register_tool(mcp, spotify_add_to_queue)
 
 # Register Modular Tools - Playlist Management & Curation
-mcp.add_tool(spotify_create_playlist)
-mcp.add_tool(spotify_get_user_playlists)
-mcp.add_tool(spotify_get_playlist)
-mcp.add_tool(spotify_get_playlist_items)
-mcp.add_tool(spotify_add_tracks_to_playlist)
-mcp.add_tool(spotify_remove_tracks_from_playlist)
-mcp.add_tool(spotify_reorder_playlist_tracks)
-mcp.add_tool(spotify_replace_playlist_tracks)
-mcp.add_tool(spotify_update_playlist_details)
-mcp.add_tool(spotify_upload_playlist_cover)
+register_tool(mcp, spotify_create_playlist)
+register_tool(mcp, spotify_get_user_playlists)
+register_tool(mcp, spotify_get_playlist)
+register_tool(mcp, spotify_get_playlist_items)
+register_tool(mcp, spotify_add_tracks_to_playlist)
+register_tool(mcp, spotify_remove_tracks_from_playlist)
+register_tool(mcp, spotify_reorder_playlist_tracks)
+register_tool(mcp, spotify_replace_playlist_tracks)
+register_tool(mcp, spotify_update_playlist_details)
+register_tool(mcp, spotify_upload_playlist_cover)
 
+
+# Note: ambient resources below call tool functions directly (not the
+# log_tool_calls-wrapped versions registered above), so resource-triggered
+# calls are not covered by hook B's tool-call logging.
 
 # Ambient MCP Resources - User Context
 @mcp.resource("spotify://user/profile")
@@ -140,6 +151,7 @@ async def get_playlist_resource(playlist_id: str) -> str:
 
 def run_server():
     """Run the FastMCP server via STDIO transport."""
+    set_transport_mode("stdio")
     mcp.run(transport="stdio")
 
 

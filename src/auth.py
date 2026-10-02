@@ -13,6 +13,7 @@ from typing import Any
 
 from src.config import SpotifySettings, load_settings
 from src.lib.http import get_sync_http_client
+from src.lib.logger import logger
 
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
@@ -176,7 +177,7 @@ class SpotifyAuthManager:
 
         # Start HTTP server to listen for single callback
         httpd = HTTPServer((host, port), OAuthCallbackHandler)
-        print(f"\nOpening browser for Spotify authentication: {auth_url}\n")
+        logger.info("Opening browser for Spotify authentication: %s", auth_url)
         webbrowser.open(auth_url)
 
         # Wait for HTTP request
