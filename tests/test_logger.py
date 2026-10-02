@@ -40,7 +40,11 @@ async def test_log_tool_calls_logs_info_on_success(caplog):
 
 @pytest.mark.asyncio
 async def test_log_tool_calls_logs_error_and_reraises(caplog):
-    """Hook B logs a verbose ERROR block on an uncaught exception and re-raises it unchanged."""
+    """Hook B logs an ERROR block on an uncaught exception and re-raises it unchanged.
+
+    At INFO (the default level), the full stack trace is suppressed to keep
+    stderr quiet -- only the terse exception type/message is logged.
+    """
 
     async def failing_tool(name: str = "x") -> str:
         raise ValueError("boom")
@@ -56,7 +60,24 @@ async def test_log_tool_calls_logs_error_and_reraises(caplog):
     message = failed_records[0].message
     assert "tool=failing_tool" in message
     assert "ValueError: boom" in message
-    assert "Traceback" in message
+    assert "Traceback" not in message
+
+
+@pytest.mark.asyncio
+async def test_log_tool_calls_includes_traceback_at_debug_level(caplog):
+    """At DEBUG level, hook B includes the full stack trace for an uncaught exception."""
+
+    async def failing_tool(name: str = "x") -> str:
+        raise ValueError("boom")
+
+    wrapped = log_tool_calls(failing_tool)
+
+    with caplog.at_level(logging.DEBUG, logger="spotify_mcp"), pytest.raises(ValueError, match="boom"):
+        await wrapped(name="y")
+
+    failed_records = [r for r in caplog.records if "TOOL_CALL_FAILED" in r.message]
+    assert len(failed_records) == 1
+    assert "Traceback" in failed_records[0].message
 
 
 def test_logger_handlers_target_stderr_not_stdout():
