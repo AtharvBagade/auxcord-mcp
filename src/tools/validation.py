@@ -1,4 +1,4 @@
-"""Client-side argument validation and structured errors for Spotify 400 responses (ADR-0001).
+"""Client-side argument validation and structured errors for Spotify 400 responses.
 
 Limits mirror what the live Web API enforces (verified 2026-10); Spotify answers anything
 outside them with a 400. Checking first gives agents an actionable message without a round trip.

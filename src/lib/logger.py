@@ -7,8 +7,6 @@ Two hook points write through this module:
      successful tool call, and a verbose block for any exception that
      propagates out of a tool uncaught.
 
-See docs/adr/0004-two-hook-point-request-logging.md for rationale.
-
 Logs are always written to stderr, never stdout: stdio transport uses
 stdout for JSON-RPC protocol frames, so anything else written there would
 corrupt the protocol stream.

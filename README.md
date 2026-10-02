@@ -135,9 +135,3 @@ pip install -e ".[dev]"
 pytest
 ruff check src tests
 ```
-
-Design background lives in the repository:
-
-- [PRD.md](PRD.md): product requirements and the Spotify endpoint mapping.
-- [CONTEXT.md](CONTEXT.md): domain language and error-recovery conventions.
-- [docs/adr](docs/adr): architecture decision records (structured errors, response trimming, logging, transports).

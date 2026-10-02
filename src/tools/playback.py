@@ -9,7 +9,7 @@ from src.client import get_spotify_client
 
 
 def _handle_player_error(exc: Exception) -> str:
-    """Format HTTP errors into structured self-healing guidance for LLMs (ADR-0001)."""
+    """Format HTTP errors into structured self-healing guidance for LLMs."""
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = exc.response.status_code
         if status_code == 404:
@@ -49,7 +49,7 @@ def _handle_player_error(exc: Exception) -> str:
 
 
 def _prune_track(item: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Prune verbose metadata (available_markets, preview URLs, copyrights) from track objects (ADR-0002)."""
+    """Prune verbose metadata (available_markets, preview URLs, copyrights) from track objects."""
     if not item:
         return None
     return {
