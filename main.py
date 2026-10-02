@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Spotify MCP Server entrypoint launcher."""
+"""Auxcord MCP server entrypoint launcher."""
 
 import argparse
 
@@ -10,7 +10,7 @@ from src.mcp_server import mcp
 
 def main():
     """Main CLI entrypoint."""
-    parser = argparse.ArgumentParser(description="Spotify MCP Server Launcher")
+    parser = argparse.ArgumentParser(description="Auxcord MCP server launcher")
     parser.add_argument(
         "--transport",
         choices=["stdio", "http"],

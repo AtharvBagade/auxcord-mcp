@@ -1,9 +1,9 @@
-"""Configuration settings for Spotify MCP Server."""
+"""Configuration settings for Auxcord."""
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Full set of OAuth scopes required for Spotify MCP Server features
+# Full set of OAuth scopes required for Auxcord features
 DEFAULT_SPOTIFY_SCOPES: list[str] = [
     "user-read-private",
     "user-read-email",
@@ -43,7 +43,7 @@ class SpotifySettings(BaseSettings):
         description="Path to store cached OAuth user access and refresh tokens",
     )
     mcp_server_name: str = Field(
-        default="Spotify MCP Server",
+        default="Auxcord",
         description="Display name for the MCP server",
     )
     mcp_host: str = Field(
@@ -56,7 +56,7 @@ class SpotifySettings(BaseSettings):
     )
     log_level: str = Field(
         default="INFO",
-        description="Logging level for spotify_mcp logger (e.g. DEBUG, INFO, WARNING). "
+        description="Logging level for auxcord logger (e.g. DEBUG, INFO, WARNING). "
         "Full tracebacks on tool failures only print at DEBUG.",
     )
     scopes: list[str] = Field(

@@ -1,11 +1,13 @@
-# Spotify MCP Server
+# Auxcord
+
+**Hand your AI the aux.** An MCP server for Spotify.
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![MCP](https://img.shields.io/badge/MCP-stdio%20%7C%20streamable%20HTTP-green)
 ![Version](https://img.shields.io/badge/version-0.1.0-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
-A Model Context Protocol (MCP) server that gives AI assistants (Claude Desktop, Cursor, Antigravity, or your own agents) control over Spotify: playback, devices, the queue, search, your library, and playlists.
+Auxcord is a Model Context Protocol (MCP) server that gives AI assistants (Claude Desktop, Cursor, Antigravity, or your own agents) control over Spotify: playback, devices, the queue, search, your library, and playlists.
 
 ## Highlights
 
@@ -52,9 +54,9 @@ After [installing](#installation), add the server to your MCP client. For Claude
 ```json
 {
   "mcpServers": {
-    "spotify": {
-      "command": "/path/to/spotify-mcp-server/.venv/bin/python",
-      "args": ["/path/to/spotify-mcp-server/main.py"]
+    "auxcord": {
+      "command": "/path/to/auxcord-mcp/.venv/bin/python",
+      "args": ["/path/to/auxcord-mcp/main.py"]
     }
   }
 }
@@ -86,8 +88,8 @@ New apps start in Development Mode: your own account works right away, and other
 **2. Install the server**
 
 ```bash
-git clone https://github.com/AtharvBagade/spotify-mcp-server.git
-cd spotify-mcp-server
+git clone https://github.com/AtharvBagade/auxcord-mcp.git
+cd auxcord-mcp
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
@@ -107,7 +109,7 @@ SPOTIFY_REDIRECT_URI="http://127.0.0.1:8888/callback"
 
 # Optional (defaults shown)
 SPOTIFY_TOKEN_CACHE_PATH=".spotify_token.json"
-MCP_SERVER_NAME="Spotify MCP Server"
+MCP_SERVER_NAME="Auxcord"
 MCP_HOST="127.0.0.1"
 MCP_PORT=8000
 LOG_LEVEL="INFO"
@@ -123,7 +125,7 @@ A browser window opens for you to sign in to Spotify. The token is cached in `.s
 
 ## Feedback and Contributing
 
-Bug reports and feature requests are welcome in [GitHub Issues](https://github.com/AtharvBagade/spotify-mcp-server/issues). Please include the tool name, its arguments and the `error_code` you got back.
+Bug reports and feature requests are welcome in [GitHub Issues](https://github.com/AtharvBagade/auxcord-mcp/issues). Please include the tool name, its arguments and the `error_code` you got back.
 
 To work on the server, install the development dependencies and run the tests:
 

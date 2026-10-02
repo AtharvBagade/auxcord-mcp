@@ -1,1 +1,1 @@
-"""Spotify MCP Server tools domain modules."""
+"""Auxcord tool modules."""

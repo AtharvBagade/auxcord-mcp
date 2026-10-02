@@ -1,4 +1,4 @@
-"""Device discovery and playback transfer tools for Spotify MCP Server."""
+"""Device discovery and playback transfer tools for Auxcord."""
 
 import json
 

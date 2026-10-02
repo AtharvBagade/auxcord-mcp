@@ -1,4 +1,4 @@
-"""FastMCP Server initialization, tool registration, and ambient resources for Spotify MCP Server."""
+"""FastMCP Server initialization, tool registration, and ambient resources for Auxcord."""
 
 from fastmcp import FastMCP
 from src.config import load_settings

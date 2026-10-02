@@ -247,7 +247,7 @@ async def test_request_logs_http_status_error(caplog):
 
     client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
 
-    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+    with caplog.at_level(logging.ERROR, logger="auxcord"):
         with pytest.raises(httpx.HTTPStatusError):
             await client.request("PUT", "/me/player/play", params={"device_id": None})
 
@@ -271,7 +271,7 @@ async def test_request_logs_network_error(caplog):
 
     client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
 
-    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+    with caplog.at_level(logging.ERROR, logger="auxcord"):
         with pytest.raises(httpx.ConnectTimeout):
             await client.request("GET", "/me")
 
@@ -299,7 +299,7 @@ async def test_request_logs_json_parse_error(caplog):
 
     client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
 
-    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+    with caplog.at_level(logging.ERROR, logger="auxcord"):
         with pytest.raises(ValueError, match="Invalid JSON response"):
             await client.request("GET", "/me")
 
@@ -324,7 +324,7 @@ async def test_request_no_error_log_on_success(caplog):
 
     client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
 
-    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+    with caplog.at_level(logging.ERROR, logger="auxcord"):
         result = await client.request("GET", "/me")
 
     assert result == {"id": "abc"}

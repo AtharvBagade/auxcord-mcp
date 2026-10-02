@@ -1,4 +1,4 @@
-"""Playlist management and custom cover art tools for Spotify MCP Server."""
+"""Playlist management and custom cover art tools for Auxcord."""
 
 import base64
 import json

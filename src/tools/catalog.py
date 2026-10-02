@@ -1,4 +1,4 @@
-"""Catalog search and metadata retrieval tools for Spotify MCP Server."""
+"""Catalog search and metadata retrieval tools for Auxcord."""
 
 import json
 from typing import Any

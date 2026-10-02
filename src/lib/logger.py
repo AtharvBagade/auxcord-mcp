@@ -1,4 +1,4 @@
-"""Plain-text stderr logging utility for Spotify MCP Server.
+"""Plain-text stderr logging utility for Auxcord.
 
 Two hook points write through this module:
   A. src/client.py SpotifyClient.request() -- logs raw Spotify API failures
@@ -21,7 +21,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 
 from src.config import load_settings
 
-_LOGGER_NAME = "spotify_mcp"
+_LOGGER_NAME = "auxcord"
 
 # Module-level transport mode, set once by main.py / mcp_server.py before
 # mcp.run(). A plain global rather than a contextvar: this process runs
