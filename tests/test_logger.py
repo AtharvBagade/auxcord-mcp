@@ -134,7 +134,7 @@ async def test_log_tool_calls_includes_transport_mode(caplog):
 async def test_self_healing_tool_logs_api_failure_but_ok_at_tool_level(caplog):
     """Integration: a player tool that self-heals a 404 still logs the raw API
     failure at hook A (SpotifyClient.request), while hook B logs the wrapped
-    tool call itself as OK, since no exception escapes the tool (ADR-0001)."""
+    tool call itself as OK, since no exception escapes the tool."""
     from src.client import SpotifyClient
     from src.tools.playback import spotify_play
 

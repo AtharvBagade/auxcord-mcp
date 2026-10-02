@@ -334,7 +334,7 @@ async def test_spotify_get_playlist_items_tool():
 
 @pytest.mark.asyncio
 async def test_spotify_get_playlist_items_tool_forbidden_for_not_owned():
-    """403 on /items (playlist not owned/collaborated) maps to a structured, self-healing error (ADR-0001)."""
+    """403 on /items (playlist not owned/collaborated) maps to a structured, self-healing error."""
     request = httpx.Request("GET", "https://api.spotify.com/v1/playlists/pl_other/items")
     response = httpx.Response(403, request=request, text='{"error": {"status": 403, "message": "Forbidden"}}')
 

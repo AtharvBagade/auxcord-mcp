@@ -49,7 +49,7 @@ def _handle_queue_error(exc: Exception) -> str:
 
 
 def _prune_queue_track(item: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Prune verbose fields from queue track items (ADR-0002)."""
+    """Prune verbose fields from queue track items."""
     if not item:
         return None
     return {

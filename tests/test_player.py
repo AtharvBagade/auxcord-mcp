@@ -104,7 +104,7 @@ async def test_spotify_play_uris_with_offset_uri():
 
 @pytest.mark.asyncio
 async def test_spotify_play_no_active_device_recovery():
-    """Test self-healing JSON response on 404 No Active Device error (ADR-0001)."""
+    """Test self-healing JSON response on 404 No Active Device error."""
     with patch("src.tools.playback.get_spotify_client") as mock_get_client:
         mock_client = MagicMock()
         mock_response = httpx.Response(
@@ -241,7 +241,7 @@ async def test_playback_controls_seek_volume_shuffle_repeat():
 
 @pytest.mark.asyncio
 async def test_spotify_get_playback_state_and_currently_playing():
-    """Test get_playback_state and get_currently_playing with pruned high-signal data (ADR-0002)."""
+    """Test get_playback_state and get_currently_playing with pruned high-signal data."""
     mock_raw_state = {
         "is_playing": True,
         "progress_ms": 35000,
