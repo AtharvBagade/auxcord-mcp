@@ -44,10 +44,6 @@ These are limits on Spotify's side, not bugs in this server. Each was confirmed 
 - **Playlist search hides some results.** Spotify returns some playlist results as `null` (about 3 in 10 in live testing). `spotify_search_catalog` drops them and reports how many it dropped in `playlists_hidden_by_spotify`. If a page comes back mostly or entirely hidden, try the next `offset`.
 - **Playlist track counts can lag.** Right after tracks are added, `spotify_get_user_playlists` may report a stale `tracks_total`. `spotify_get_playlist` reports the current count.
 
-### Authors
-
-Built by [Atharv Bagade](https://github.com/AtharvBagade).
-
 ## Usage
 
 After [installing](#installation), add the server to your MCP client. For Claude Desktop, edit `claude_desktop_config.json`:
