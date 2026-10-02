@@ -28,7 +28,6 @@ async def test_spotify_get_top_tracks():
                 "name": "Starboy",
                 "artists": [{"name": "The Weeknd"}],
                 "album": {"name": "Starboy"},
-                "popularity": 95,
                 "duration_ms": 230000,
                 "uri": "spotify:track:t1",
             }
@@ -46,6 +45,7 @@ async def test_spotify_get_top_tracks():
         assert len(data) == 1
         assert data[0]["name"] == "Starboy"
         assert data[0]["artists"] == ["The Weeknd"]
+        assert "popularity" not in data[0]
 
 
 @pytest.mark.asyncio
@@ -56,9 +56,6 @@ async def test_spotify_get_top_artists():
             {
                 "id": "a1",
                 "name": "The Weeknd",
-                "genres": ["pop", "r&b"],
-                "popularity": 98,
-                "followers": {"total": 80000000},
                 "uri": "spotify:artist:a1",
             }
         ]
@@ -74,7 +71,7 @@ async def test_spotify_get_top_artists():
 
         assert len(data) == 1
         assert data[0]["name"] == "The Weeknd"
-        assert "pop" in data[0]["genres"]
+        assert not {"genres", "popularity", "followers"} & data[0].keys()
 
 
 @pytest.mark.asyncio
@@ -120,7 +117,6 @@ async def test_spotify_get_saved_tracks():
                     "name": "Save Your Tears",
                     "artists": [{"name": "The Weeknd"}],
                     "album": {"name": "After Hours"},
-                    "popularity": 92,
                     "uri": "spotify:track:t1",
                 },
             }
@@ -137,6 +133,7 @@ async def test_spotify_get_saved_tracks():
 
         assert len(data) == 1
         assert data[0]["track_name"] == "Save Your Tears"
+        assert "popularity" not in data[0]
 
 
 @pytest.mark.asyncio

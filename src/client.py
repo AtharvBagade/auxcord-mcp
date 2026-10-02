@@ -50,8 +50,13 @@ class SpotifyClient:
         json_data: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         data: Any | None = None,
+        expect_json: bool = True,
     ) -> dict[str, Any]:
-        """Make an authenticated async request to the Spotify Web API."""
+        """Make an authenticated async request to the Spotify Web API.
+
+        Set ``expect_json=False`` for fire-and-forget commands (player controls):
+        Spotify may answer those with 200 and a non-JSON body, which is still a success.
+        """
         url = f"{SPOTIFY_API_BASE_URL}{endpoint}" if endpoint.startswith("/") else f"{SPOTIFY_API_BASE_URL}/{endpoint}"
         access_token = self.auth_manager.get_valid_access_token()
         req_headers = {
@@ -111,7 +116,7 @@ class SpotifyClient:
             )
             raise
 
-        if response.status_code in (202, 204) or not len(response.text):
+        if not expect_json or response.status_code in (202, 204) or not len(response.text):
             return {}
         try:
             return response.json()
@@ -172,10 +177,6 @@ class SpotifyClient:
         """Fetch artist metadata (`GET /v1/artists/{id}`)."""
         return await self.request("GET", f"/artists/{artist_id}")
 
-    async def get_artist_top_tracks(self, artist_id: str, market: str = "US") -> dict[str, Any]:
-        """Fetch top 10 tracks for an artist (`GET /v1/artists/{id}/top-tracks`)."""
-        return await self.request("GET", f"/artists/{artist_id}/top-tracks", params={"market": market})
-
     async def get_album(self, album_id: str) -> dict[str, Any]:
         """Fetch album details and tracklist (`GET /v1/albums/{id}`)."""
         return await self.request("GET", f"/albums/{album_id}")
@@ -219,7 +220,7 @@ class SpotifyClient:
     async def transfer_playback(self, device_id: str, play: bool = False) -> dict[str, Any]:
         """Transfer playback to a specified device (`PUT /v1/me/player`)."""
         payload = {"device_ids": [device_id], "play": play}
-        return await self.request("PUT", "/me/player", json_data=payload)
+        return await self.request("PUT", "/me/player", json_data=payload, expect_json=False)
 
     async def play(
         self,
@@ -247,50 +248,51 @@ class SpotifyClient:
             "/me/player/play",
             params=params,
             json_data=payload if payload else None,
+            expect_json=False,
         )
 
     async def pause(self, device_id: str | None = None) -> dict[str, Any]:
         """Pause playback on active device (`PUT /v1/me/player/pause`)."""
         params = {"device_id": device_id} if device_id else None
-        return await self.request("PUT", "/me/player/pause", params=params)
+        return await self.request("PUT", "/me/player/pause", params=params, expect_json=False)
 
     async def skip_to_next(self, device_id: str | None = None) -> dict[str, Any]:
         """Skip to next track in queue/context (`POST /v1/me/player/next`)."""
         params = {"device_id": device_id} if device_id else None
-        return await self.request("POST", "/me/player/next", params=params)
+        return await self.request("POST", "/me/player/next", params=params, expect_json=False)
 
     async def skip_to_previous(self, device_id: str | None = None) -> dict[str, Any]:
         """Skip to previous track (`POST /v1/me/player/previous`)."""
         params = {"device_id": device_id} if device_id else None
-        return await self.request("POST", "/me/player/previous", params=params)
+        return await self.request("POST", "/me/player/previous", params=params, expect_json=False)
 
     async def seek_to_position(self, position_ms: int, device_id: str | None = None) -> dict[str, Any]:
         """Seek to position in milliseconds on active device (`PUT /v1/me/player/seek`)."""
         params: dict[str, Any] = {"position_ms": position_ms}
         if device_id:
             params["device_id"] = device_id
-        return await self.request("PUT", "/me/player/seek", params=params)
+        return await self.request("PUT", "/me/player/seek", params=params, expect_json=False)
 
     async def set_volume(self, volume_percent: int, device_id: str | None = None) -> dict[str, Any]:
         """Set volume percentage (0-100) on active device (`PUT /v1/me/player/volume`)."""
         params: dict[str, Any] = {"volume_percent": volume_percent}
         if device_id:
             params["device_id"] = device_id
-        return await self.request("PUT", "/me/player/volume", params=params)
+        return await self.request("PUT", "/me/player/volume", params=params, expect_json=False)
 
     async def toggle_shuffle(self, state: bool, device_id: str | None = None) -> dict[str, Any]:
         """Toggle shuffle on/off (`PUT /v1/me/player/shuffle`)."""
         params: dict[str, Any] = {"state": "true" if state else "false"}
         if device_id:
             params["device_id"] = device_id
-        return await self.request("PUT", "/me/player/shuffle", params=params)
+        return await self.request("PUT", "/me/player/shuffle", params=params, expect_json=False)
 
     async def set_repeat_mode(self, state: str, device_id: str | None = None) -> dict[str, Any]:
         """Set repeat mode ('off', 'track', 'context') (`PUT /v1/me/player/repeat`)."""
         params: dict[str, Any] = {"state": state}
         if device_id:
             params["device_id"] = device_id
-        return await self.request("PUT", "/me/player/repeat", params=params)
+        return await self.request("PUT", "/me/player/repeat", params=params, expect_json=False)
 
     async def get_queue(self) -> dict[str, Any]:
         """Fetch user's current playback queue (`GET /v1/me/player/queue`)."""
@@ -301,7 +303,7 @@ class SpotifyClient:
         params: dict[str, Any] = {"uri": uri}
         if device_id:
             params["device_id"] = device_id
-        return await self.request("POST", "/me/player/queue", params=params)
+        return await self.request("POST", "/me/player/queue", params=params, expect_json=False)
 
     # --- Playlist Management Methods ---
 
@@ -309,22 +311,15 @@ class SpotifyClient:
         self,
         name: str,
         description: str = "",
-        public: bool = True,
         collaborative: bool = False,
-        user_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create a playlist for a user (`POST /v1/users/{user_id}/playlists`)."""
-        if not user_id:
-            profile = await self.get_user_profile()
-            user_id = profile["id"]
-
+        """Create a playlist for the current user (`POST /v1/me/playlists`)."""
         payload: dict[str, Any] = {
             "name": name,
             "description": description,
-            "public": public,
             "collaborative": collaborative,
         }
-        return await self.request("POST", f"/users/{user_id}/playlists", json_data=payload)
+        return await self.request("POST", "/me/playlists", json_data=payload)
 
     async def get_user_playlists(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         """Fetch user's playlists (`GET /v1/me/playlists`)."""
@@ -353,13 +348,13 @@ class SpotifyClient:
         market: str | None = None,
         fields: str | None = None,
     ) -> dict[str, Any]:
-        """Fetch items of a playlist (`GET /v1/playlists/{playlist_id}/tracks`)."""
+        """Fetch items of a playlist (`GET /v1/playlists/{playlist_id}/items`)."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
         if fields:
             params["fields"] = fields
-        return await self.request("GET", f"/playlists/{playlist_id}/tracks", params=params)
+        return await self.request("GET", f"/playlists/{playlist_id}/items", params=params)
 
     async def add_tracks_to_playlist(
         self,
@@ -367,11 +362,11 @@ class SpotifyClient:
         uris: list[str],
         position: int | None = None,
     ) -> dict[str, Any]:
-        """Add tracks or episodes to a playlist (`POST /v1/playlists/{playlist_id}/tracks`)."""
+        """Add tracks or episodes to a playlist (`POST /v1/playlists/{playlist_id}/items`)."""
         payload: dict[str, Any] = {"uris": uris}
         if position is not None:
             payload["position"] = position
-        return await self.request("POST", f"/playlists/{playlist_id}/tracks", json_data=payload)
+        return await self.request("POST", f"/playlists/{playlist_id}/items", json_data=payload)
 
     async def remove_tracks_from_playlist(
         self,
@@ -379,11 +374,11 @@ class SpotifyClient:
         uris: list[str],
         snapshot_id: str | None = None,
     ) -> dict[str, Any]:
-        """Remove tracks or episodes from a playlist (`DELETE /v1/playlists/{playlist_id}/tracks`)."""
-        payload: dict[str, Any] = {"tracks": [{"uri": uri} for uri in uris]}
+        """Remove tracks or episodes from a playlist (`DELETE /v1/playlists/{playlist_id}/items`)."""
+        payload: dict[str, Any] = {"items": [{"uri": uri} for uri in uris]}
         if snapshot_id:
             payload["snapshot_id"] = snapshot_id
-        return await self.request("DELETE", f"/playlists/{playlist_id}/tracks", json_data=payload)
+        return await self.request("DELETE", f"/playlists/{playlist_id}/items", json_data=payload)
 
     async def reorder_playlist_tracks(
         self,
@@ -393,7 +388,7 @@ class SpotifyClient:
         range_length: int = 1,
         snapshot_id: str | None = None,
     ) -> dict[str, Any]:
-        """Reorder tracks in a playlist (`PUT /v1/playlists/{playlist_id}/tracks`)."""
+        """Reorder tracks in a playlist (`PUT /v1/playlists/{playlist_id}/items`)."""
         payload: dict[str, Any] = {
             "range_start": range_start,
             "insert_before": insert_before,
@@ -401,22 +396,21 @@ class SpotifyClient:
         }
         if snapshot_id:
             payload["snapshot_id"] = snapshot_id
-        return await self.request("PUT", f"/playlists/{playlist_id}/tracks", json_data=payload)
+        return await self.request("PUT", f"/playlists/{playlist_id}/items", json_data=payload)
 
     async def replace_playlist_tracks(
         self,
         playlist_id: str,
         uris: list[str],
     ) -> dict[str, Any]:
-        """Replace all tracks in a playlist (`PUT /v1/playlists/{playlist_id}/tracks`)."""
+        """Replace all tracks in a playlist (`PUT /v1/playlists/{playlist_id}/items`)."""
         payload = {"uris": uris}
-        return await self.request("PUT", f"/playlists/{playlist_id}/tracks", json_data=payload)
+        return await self.request("PUT", f"/playlists/{playlist_id}/items", json_data=payload)
 
     async def update_playlist_details(
         self,
         playlist_id: str,
         name: str | None = None,
-        public: bool | None = None,
         collaborative: bool | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
@@ -424,8 +418,6 @@ class SpotifyClient:
         payload: dict[str, Any] = {}
         if name is not None:
             payload["name"] = name
-        if public is not None:
-            payload["public"] = public
         if collaborative is not None:
             payload["collaborative"] = collaborative
         if description is not None:

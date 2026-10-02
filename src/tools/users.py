@@ -27,7 +27,7 @@ async def spotify_get_top_tracks(
         offset: Index of first item to return (default 0).
 
     Returns:
-        JSON array of top tracks with track name, artists, album, popularity, and URI.
+        JSON array of top tracks with track name, artists, album, and URI.
     """
     client = get_spotify_client()
     raw = await client.get_top_tracks(time_range=time_range, limit=limit, offset=offset)
@@ -38,7 +38,6 @@ async def spotify_get_top_tracks(
             "name": item.get("name"),
             "artists": [a.get("name") for a in item.get("artists", [])],
             "album": item.get("album", {}).get("name"),
-            "popularity": item.get("popularity"),
             "duration_ms": item.get("duration_ms"),
             "uri": item.get("uri"),
         }
@@ -58,7 +57,7 @@ async def spotify_get_top_artists(
         offset: Index of first item to return (default 0).
 
     Returns:
-        JSON array of top artists with name, genres, popularity score, followers count, and URI.
+        JSON array of top artists with name and URI.
     """
     client = get_spotify_client()
     raw = await client.get_top_artists(time_range=time_range, limit=limit, offset=offset)
@@ -67,9 +66,6 @@ async def spotify_get_top_artists(
         {
             "id": item.get("id"),
             "name": item.get("name"),
-            "genres": item.get("genres", []),
-            "popularity": item.get("popularity"),
-            "followers": item.get("followers", {}).get("total", 0),
             "uri": item.get("uri"),
         }
         for item in raw.get("items", [])
@@ -126,7 +122,6 @@ async def spotify_get_saved_tracks(limit: int = 20, offset: int = 0) -> str:
             "track_name": track.get("name"),
             "artists": [a.get("name") for a in track.get("artists", [])],
             "album": track.get("album", {}).get("name"),
-            "popularity": track.get("popularity"),
             "uri": track.get("uri"),
         })
 

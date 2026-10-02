@@ -8,9 +8,11 @@ import pytest
 from src.tools.catalog import (
     spotify_get_album,
     spotify_get_artist,
-    spotify_get_artist_top_tracks,
     spotify_search_catalog,
 )
+
+# Fields Spotify removed from track/artist/album objects (live-verified; Feb 2026 Web API changes).
+REMOVED_ARTIST_FIELDS = {"genres", "popularity", "followers"}
 
 
 @pytest.mark.asyncio
@@ -25,7 +27,6 @@ async def test_spotify_search_catalog():
                     "artists": [{"name": "Daft Punk"}],
                     "album": {"name": "Random Access Memories"},
                     "duration_ms": 240000,
-                    "popularity": 85,
                     "uri": "spotify:track:t1",
                 }
             ]
@@ -35,11 +36,20 @@ async def test_spotify_search_catalog():
                 {
                     "id": "a1",
                     "name": "Daft Punk",
-                    "genres": ["synthpop", "electronic"],
-                    "popularity": 90,
-                    "followers": {"total": 5000000},
                     "uri": "spotify:artist:a1",
                 }
+            ]
+        },
+        "playlists": {
+            "items": [
+                None,
+                {
+                    "id": "p1",
+                    "name": "Daft Punk Essentials",
+                    "owner": {"display_name": "Spotify"},
+                    "items": {"href": "https://api.spotify.com/v1/playlists/p1/items", "total": 31},
+                    "uri": "spotify:playlist:p1",
+                },
             ]
         },
     }
@@ -57,6 +67,17 @@ async def test_spotify_search_catalog():
         assert data["tracks"][0]["artists"] == ["Daft Punk"]
         assert "artists" in data
         assert data["artists"][0]["name"] == "Daft Punk"
+        assert "popularity" not in data["tracks"][0]
+        assert not REMOVED_ARTIST_FIELDS & data["artists"][0].keys()
+        assert data["playlists"] == [
+            {
+                "id": "p1",
+                "name": "Daft Punk Essentials",
+                "owner": "Spotify",
+                "tracks_total": 31,
+                "uri": "spotify:playlist:p1",
+            }
+        ]
 
 
 @pytest.mark.asyncio
@@ -65,9 +86,6 @@ async def test_spotify_get_artist():
     mock_artist_response = {
         "id": "a1",
         "name": "Daft Punk",
-        "genres": ["electronic"],
-        "popularity": 92,
-        "followers": {"total": 6000000},
         "uri": "spotify:artist:a1",
         "external_urls": {"spotify": "https://open.spotify.com/artist/a1"},
         "images": [{"url": "https://example.com/daftpunk.jpg"}],
@@ -83,38 +101,19 @@ async def test_spotify_get_artist():
 
         assert data["id"] == "a1"
         assert data["name"] == "Daft Punk"
-        assert data["popularity"] == 92
+        assert not REMOVED_ARTIST_FIELDS & data.keys()
         assert data["image_url"] == "https://example.com/daftpunk.jpg"
 
 
-@pytest.mark.asyncio
-async def test_spotify_get_artist_top_tracks():
-    """Test spotify_get_artist_top_tracks tool parsing."""
-    mock_top_tracks_response = {
-        "tracks": [
-            {
-                "id": "t1",
-                "name": "One More Time",
-                "artists": [{"name": "Daft Punk"}],
-                "album": {"name": "Discovery"},
-                "popularity": 88,
-                "duration_ms": 320000,
-                "uri": "spotify:track:t1",
-            }
-        ]
-    }
+def test_artist_top_tracks_tool_removed():
+    """GET /artists/{id}/top-tracks returns 403 since Feb 2026; the tool and client method are gone."""
+    from src import mcp_server as server
+    from src.client import SpotifyClient
+    from src.tools import catalog
 
-    with patch("src.tools.catalog.get_spotify_client") as mock_get_client:
-        mock_client = MagicMock()
-        mock_client.get_artist_top_tracks = AsyncMock(return_value=mock_top_tracks_response)
-        mock_get_client.return_value = mock_client
-
-        output = await spotify_get_artist_top_tracks("a1", market="US")
-        data = json.loads(output)
-
-        assert len(data) == 1
-        assert data[0]["name"] == "One More Time"
-        assert data[0]["album"] == "Discovery"
+    assert not hasattr(catalog, "spotify_get_artist_top_tracks")
+    assert not hasattr(server, "spotify_get_artist_top_tracks")
+    assert not hasattr(SpotifyClient, "get_artist_top_tracks")
 
 
 @pytest.mark.asyncio
@@ -127,8 +126,6 @@ async def test_spotify_get_album():
         "artists": [{"name": "Daft Punk"}],
         "release_date": "2001-03-12",
         "total_tracks": 14,
-        "label": "Virgin",
-        "popularity": 90,
         "uri": "spotify:album:alb1",
         "tracks": {
             "items": [
@@ -157,3 +154,4 @@ async def test_spotify_get_album():
         assert data["total_tracks"] == 14
         assert len(data["tracks"]) == 1
         assert data["tracks"][0]["name"] == "One More Time"
+        assert not {"label", "popularity"} & data.keys()

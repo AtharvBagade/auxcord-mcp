@@ -13,7 +13,6 @@ from src.tools.users import (
 from src.tools.catalog import (
     spotify_search_catalog,
     spotify_get_artist,
-    spotify_get_artist_top_tracks,
     spotify_get_album,
 )
 from src.tools.playback import (
@@ -70,7 +69,6 @@ register_tool(mcp, spotify_get_saved_tracks)
 # Register Modular Tools - Catalog Search & Metadata
 register_tool(mcp, spotify_search_catalog)
 register_tool(mcp, spotify_get_artist)
-register_tool(mcp, spotify_get_artist_top_tracks)
 register_tool(mcp, spotify_get_album)
 
 # Register Modular Tools - Playback Control & Player State
