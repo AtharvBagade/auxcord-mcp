@@ -1,4 +1,4 @@
-"""Real-time playback control and playback state inspection tools for Spotify MCP Server."""
+"""Real-time playback control and playback state inspection tools for Auxcord."""
 
 import json
 from typing import Any

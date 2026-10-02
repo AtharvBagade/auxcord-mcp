@@ -1,4 +1,4 @@
-"""User profile, library, and personalization tools for Spotify MCP Server."""
+"""User profile, library, and personalization tools for Auxcord."""
 
 import json
 

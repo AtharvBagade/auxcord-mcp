@@ -1,10 +1,13 @@
-# Spotify MCP Server
+# Auxcord
+
+**Hand your AI the aux.** An MCP server for Spotify.
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![MCP](https://img.shields.io/badge/MCP-stdio%20%7C%20streamable%20HTTP-green)
 ![Version](https://img.shields.io/badge/version-0.1.0-lightgrey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
-A Model Context Protocol (MCP) server that gives AI assistants (Claude Desktop, Cursor, Antigravity, or your own agents) control over Spotify: playback, devices, the queue, search, your library, and playlists.
+Auxcord is a Model Context Protocol (MCP) server that gives AI assistants (Claude Desktop, Cursor, Antigravity, or your own agents) control over Spotify: playback, devices, the queue, search, your library, and playlists.
 
 ## Highlights
 
@@ -46,28 +49,76 @@ These are limits on Spotify's side, not bugs in this server. Each was confirmed 
 
 ## Usage
 
-After [installing](#installation), add the server to your MCP client. For Claude Desktop, edit `claude_desktop_config.json`:
+After [installing](#installation), add the server to your MCP client. Every client launches the same command, `/path/to/auxcord-mcp/.venv/bin/auxcord-mcp`. Replace `/path/to` with where you cloned the repo.
+
+Then restart the client and ask something like *"What's playing right now? Add two similar tracks to my queue."*
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json` (Settings > Developer > Edit Config):
 
 ```json
 {
   "mcpServers": {
-    "spotify": {
-      "command": "/path/to/spotify-mcp-server/.venv/bin/python",
-      "args": ["/path/to/spotify-mcp-server/main.py"]
+    "auxcord": {
+      "command": "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
     }
   }
 }
 ```
 
-Restart the client and ask something like *"What's playing right now? Add two similar tracks to my queue."*
+### Cursor
 
-To serve over streamable HTTP instead, for remote or multi-client setups:
+Edit `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project):
 
-```bash
-python main.py --transport http   # serves http://127.0.0.1:8000/mcp
+```json
+{
+  "mcpServers": {
+    "auxcord": {
+      "command": "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
+    }
+  }
+}
 ```
 
-Then point your client at `http://127.0.0.1:8000/mcp`. Use `--host` and `--port` to change the address.
+### Codex
+
+Edit `~/.codex/config.toml` (all projects) or `.codex/config.toml` (one project):
+
+```toml
+[mcp_servers.auxcord]
+command = "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
+```
+
+### Antigravity
+
+Edit `~/.gemini/antigravity/mcp_config.json` (Agent panel > MCP Servers > Manage MCP Servers > View raw config):
+
+```json
+{
+  "mcpServers": {
+    "auxcord": {
+      "command": "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
+    }
+  }
+}
+```
+
+### Streamable HTTP
+
+To run one server that several clients share, start it over HTTP:
+
+```bash
+auxcord-mcp --transport http   # serves http://127.0.0.1:8000/mcp
+```
+
+Use `--host` and `--port` to change the address. Then point your client at the URL instead of a command:
+
+| Client | Config |
+|---|---|
+| Cursor | `"auxcord": { "url": "http://127.0.0.1:8000/mcp" }` |
+| Codex | `[mcp_servers.auxcord]` with `url = "http://127.0.0.1:8000/mcp"` |
+| Antigravity | `"auxcord": { "serverUrl": "http://127.0.0.1:8000/mcp" }` |
 
 ## Installation
 
@@ -85,8 +136,8 @@ New apps start in Development Mode: your own account works right away, and other
 **2. Install the server**
 
 ```bash
-git clone https://github.com/AtharvBagade/spotify-mcp-server.git
-cd spotify-mcp-server
+git clone https://github.com/AtharvBagade/auxcord-mcp.git
+cd auxcord-mcp
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
@@ -106,7 +157,7 @@ SPOTIFY_REDIRECT_URI="http://127.0.0.1:8888/callback"
 
 # Optional (defaults shown)
 SPOTIFY_TOKEN_CACHE_PATH=".spotify_token.json"
-MCP_SERVER_NAME="Spotify MCP Server"
+MCP_SERVER_NAME="Auxcord"
 MCP_HOST="127.0.0.1"
 MCP_PORT=8000
 LOG_LEVEL="INFO"
@@ -122,7 +173,7 @@ A browser window opens for you to sign in to Spotify. The token is cached in `.s
 
 ## Feedback and Contributing
 
-Bug reports and feature requests are welcome in [GitHub Issues](https://github.com/AtharvBagade/spotify-mcp-server/issues). Please include the tool name, its arguments and the `error_code` you got back.
+Bug reports and feature requests are welcome in [GitHub Issues](https://github.com/AtharvBagade/auxcord-mcp/issues). Please include the tool name, its arguments and the `error_code` you got back.
 
 To work on the server, install the development dependencies and run the tests:
 

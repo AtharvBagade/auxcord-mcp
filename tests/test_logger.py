@@ -27,7 +27,7 @@ async def test_log_tool_calls_logs_info_on_success(caplog):
 
     wrapped = log_tool_calls(dummy_tool)
 
-    with caplog.at_level(logging.INFO, logger="spotify_mcp"):
+    with caplog.at_level(logging.INFO, logger="auxcord"):
         result = await wrapped(21)
 
     assert result == 42
@@ -51,7 +51,7 @@ async def test_log_tool_calls_logs_error_and_reraises(caplog):
 
     wrapped = log_tool_calls(failing_tool)
 
-    with caplog.at_level(logging.INFO, logger="spotify_mcp"):
+    with caplog.at_level(logging.INFO, logger="auxcord"):
         with pytest.raises(ValueError, match="boom"):
             await wrapped(name="y")
 
@@ -72,7 +72,7 @@ async def test_log_tool_calls_includes_traceback_at_debug_level(caplog):
 
     wrapped = log_tool_calls(failing_tool)
 
-    with caplog.at_level(logging.DEBUG, logger="spotify_mcp"), pytest.raises(ValueError, match="boom"):
+    with caplog.at_level(logging.DEBUG, logger="auxcord"), pytest.raises(ValueError, match="boom"):
         await wrapped(name="y")
 
     failed_records = [r for r in caplog.records if "TOOL_CALL_FAILED" in r.message]
@@ -81,7 +81,7 @@ async def test_log_tool_calls_includes_traceback_at_debug_level(caplog):
 
 
 def test_logger_handlers_target_stderr_not_stdout():
-    """Every handler on the spotify_mcp logger writes to fd 2 (stderr), never fd 1 (stdout).
+    """Every handler on the auxcord logger writes to fd 2 (stderr), never fd 1 (stdout).
 
     stdio transport uses stdout for JSON-RPC protocol frames, so this is a
     hard architectural invariant. Checked via OS file descriptor number
@@ -103,7 +103,7 @@ def test_logger_handlers_target_stderr_not_stdout():
             fd = handler.stream.fileno()
         except (OSError, ValueError):
             continue  # not a real OS stream (e.g. an in-memory capture buffer) -- skip
-        assert fd != 1, "a spotify_mcp log handler is writing to stdout (fd 1)"
+        assert fd != 1, "an auxcord log handler is writing to stdout (fd 1)"
 
 
 def test_set_and_get_transport_mode():
@@ -124,7 +124,7 @@ async def test_log_tool_calls_includes_transport_mode(caplog):
 
     wrapped = log_tool_calls(dummy_tool)
 
-    with caplog.at_level(logging.INFO, logger="spotify_mcp"):
+    with caplog.at_level(logging.INFO, logger="auxcord"):
         await wrapped()
 
     assert any("mode=http" in r.message for r in caplog.records)
@@ -158,7 +158,7 @@ async def test_self_healing_tool_logs_api_failure_but_ok_at_tool_level(caplog):
     with patch("src.tools.playback.get_spotify_client", return_value=real_client):
         wrapped = log_tool_calls(spotify_play)
 
-        with caplog.at_level(logging.INFO, logger="spotify_mcp"):
+        with caplog.at_level(logging.INFO, logger="auxcord"):
             result = await wrapped(context_uri="spotify:album:abc123")
 
     # (a) the wrapped tool call returns normally -- the self-healed JSON string,

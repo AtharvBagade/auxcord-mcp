@@ -55,7 +55,7 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
             <head><title>Spotify Authorization Success</title></head>
             <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
                 <h1 style="color: #1DB954;">Authorization Successful!</h1>
-                <p>Spotify MCP Server has been authenticated successfully.</p>
+                <p>Auxcord has been authenticated with Spotify successfully.</p>
                 <p>You can close this browser tab and return to your application.</p>
             </body>
             </html>

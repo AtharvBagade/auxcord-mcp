@@ -1,4 +1,4 @@
-"""Playback queue inspection and manipulation tools for Spotify MCP Server."""
+"""Playback queue inspection and manipulation tools for Auxcord."""
 
 import json
 from typing import Any
