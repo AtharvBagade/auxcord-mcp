@@ -5,6 +5,8 @@ import json
 import os
 import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import httpx
 import pytest
 
 from src.client import SpotifyClient
@@ -74,39 +76,21 @@ def test_read_and_validate_jpeg_cover_size_exceeded():
 # --- SpotifyClient Playlist Methods Tests ---
 
 @pytest.mark.asyncio
-async def test_client_create_playlist_explicit_user():
-    """Test SpotifyClient.create_playlist with explicit user_id."""
-    client = SpotifyClient(auth_manager=MagicMock())
-    with patch.object(client, "request", new_callable=AsyncMock) as mock_req:
-        mock_req.return_value = {"id": "pl1", "name": "Vibe Mix"}
-        res = await client.create_playlist(name="Vibe Mix", description="Chill vibes", public=True, collaborative=False, user_id="user123")
-
-        mock_req.assert_awaited_once_with(
-            "POST",
-            "/users/user123/playlists",
-            json_data={"name": "Vibe Mix", "description": "Chill vibes", "public": True, "collaborative": False},
-        )
-        assert res["id"] == "pl1"
-
-
-@pytest.mark.asyncio
-async def test_client_create_playlist_auto_resolve_user():
-    """Test SpotifyClient.create_playlist auto-resolving user ID from profile."""
+async def test_client_create_playlist_uses_me_endpoint():
+    """create_playlist posts to /me/playlists (POST /users/{id}/playlists was removed Feb 2026)."""
     client = SpotifyClient(auth_manager=MagicMock())
     with patch.object(client, "get_user_profile", new_callable=AsyncMock) as mock_prof, \
          patch.object(client, "request", new_callable=AsyncMock) as mock_req:
-        mock_prof.return_value = {"id": "auto_user_456"}
-        mock_req.return_value = {"id": "pl2", "name": "Auto Playlist"}
+        mock_req.return_value = {"id": "pl1", "name": "Vibe Mix"}
+        res = await client.create_playlist(name="Vibe Mix", description="Chill vibes", collaborative=False)
 
-        res = await client.create_playlist(name="Auto Playlist")
-
-        mock_prof.assert_awaited_once()
         mock_req.assert_awaited_once_with(
             "POST",
-            "/users/auto_user_456/playlists",
-            json_data={"name": "Auto Playlist", "description": "", "public": True, "collaborative": False},
+            "/me/playlists",
+            json_data={"name": "Vibe Mix", "description": "Chill vibes", "collaborative": False},
         )
-        assert res["id"] == "pl2"
+        mock_prof.assert_not_awaited()
+        assert res["id"] == "pl1"
 
 
 @pytest.mark.asyncio
@@ -126,38 +110,38 @@ async def test_client_playlist_mutation_methods():
 
         # get_playlist_items
         await client.get_playlist_items(playlist_id="pl123", limit=25, offset=10)
-        mock_req.assert_awaited_with("GET", "/playlists/pl123/tracks", params={"limit": 25, "offset": 10})
+        mock_req.assert_awaited_with("GET", "/playlists/pl123/items", params={"limit": 25, "offset": 10})
 
         # add_tracks_to_playlist
         await client.add_tracks_to_playlist(playlist_id="pl123", uris=["spotify:track:t1"], position=0)
-        mock_req.assert_awaited_with("POST", "/playlists/pl123/tracks", json_data={"uris": ["spotify:track:t1"], "position": 0})
+        mock_req.assert_awaited_with("POST", "/playlists/pl123/items", json_data={"uris": ["spotify:track:t1"], "position": 0})
 
         # remove_tracks_from_playlist
         await client.remove_tracks_from_playlist(playlist_id="pl123", uris=["spotify:track:t1"], snapshot_id="snap123")
         mock_req.assert_awaited_with(
             "DELETE",
-            "/playlists/pl123/tracks",
-            json_data={"tracks": [{"uri": "spotify:track:t1"}], "snapshot_id": "snap123"},
+            "/playlists/pl123/items",
+            json_data={"items": [{"uri": "spotify:track:t1"}], "snapshot_id": "snap123"},
         )
 
         # reorder_playlist_tracks
         await client.reorder_playlist_tracks(playlist_id="pl123", range_start=2, insert_before=0, range_length=1, snapshot_id="snap123")
         mock_req.assert_awaited_with(
             "PUT",
-            "/playlists/pl123/tracks",
+            "/playlists/pl123/items",
             json_data={"range_start": 2, "insert_before": 0, "range_length": 1, "snapshot_id": "snap123"},
         )
 
         # replace_playlist_tracks
         await client.replace_playlist_tracks(playlist_id="pl123", uris=["spotify:track:t1", "spotify:track:t2"])
-        mock_req.assert_awaited_with("PUT", "/playlists/pl123/tracks", json_data={"uris": ["spotify:track:t1", "spotify:track:t2"]})
+        mock_req.assert_awaited_with("PUT", "/playlists/pl123/items", json_data={"uris": ["spotify:track:t1", "spotify:track:t2"]})
 
         # update_playlist_details
-        await client.update_playlist_details(playlist_id="pl123", name="New Name", description="New Desc", public=False)
+        await client.update_playlist_details(playlist_id="pl123", name="New Name", description="New Desc")
         mock_req.assert_awaited_with(
             "PUT",
             "/playlists/pl123",
-            json_data={"name": "New Name", "description": "New Desc", "public": False},
+            json_data={"name": "New Name", "description": "New Desc"},
         )
 
         # upload_playlist_cover_image
@@ -199,6 +183,9 @@ async def test_spotify_create_playlist_tool():
         assert data["name"] == "Synthwave Night"
         assert data["owner"] == "RetroMaster"
         assert data["snapshot_id"] == "snap_1"
+        mock_client.create_playlist.assert_awaited_once_with(
+            name="Synthwave Night", description="Retro electro sounds", collaborative=False
+        )
 
 
 @pytest.mark.asyncio
@@ -211,7 +198,7 @@ async def test_spotify_get_user_playlists_tool():
                 "name": "Chill House",
                 "description": "Deep vibes",
                 "owner": {"display_name": "DJ"},
-                "tracks": {"total": 45},
+                "items": {"href": "https://api.spotify.com/v1/playlists/pl1/items", "total": 45},
                 "public": True,
                 "collaborative": False,
                 "snapshot_id": "snap_ch",
@@ -250,18 +237,17 @@ async def test_spotify_get_playlist_tool():
         "uri": "spotify:playlist:pl_full",
         "external_urls": {"spotify": "https://open.spotify.com/playlist/pl_full"},
         "images": [{"url": "https://img.com/full.jpg"}],
-        "tracks": {
+        "items": {
             "total": 1,
             "items": [
                 {
                     "added_at": "2026-08-01T00:00:00Z",
-                    "track": {
+                    "item": {
                         "id": "t10",
                         "name": "Track Ten",
                         "artists": [{"name": "Artist Ten"}],
                         "album": {"name": "Album Ten"},
                         "duration_ms": 180000,
-                        "popularity": 80,
                         "uri": "spotify:track:t10",
                     },
                 }
@@ -281,7 +267,35 @@ async def test_spotify_get_playlist_tool():
         assert data["followers"] == 1200
         assert len(data["tracks"]) == 1
         assert data["tracks"][0]["name"] == "Track Ten"
+        assert data["tracks"][0]["artists"] == ["Artist Ten"]
+        assert "popularity" not in data["tracks"][0]
+        assert data["total_tracks"] == 1
         mock_client.get_playlist.assert_awaited_with("pl_full", market=None)
+
+
+@pytest.mark.asyncio
+async def test_spotify_get_playlist_tool_not_owned_returns_metadata_only():
+    """Playlists the user doesn't own/collaborate on come back without `items`; say so instead of faking 0 tracks."""
+    mock_res = {
+        "id": "pl_other",
+        "name": "Someone Else's Mix",
+        "owner": {"display_name": "Stranger"},
+        "followers": {"total": 5},
+        "snapshot_id": "snap_other",
+        "uri": "spotify:playlist:pl_other",
+    }
+
+    with patch("src.tools.playlists.get_spotify_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_client.get_playlist = AsyncMock(return_value=mock_res)
+        mock_get_client.return_value = mock_client
+
+        data = json.loads(await spotify_get_playlist("pl_other"))
+
+        assert data["name"] == "Someone Else's Mix"
+        assert data["tracks"] == []
+        assert data["total_tracks"] is None
+        assert "own or collaborate" in data["note"]
 
 
 @pytest.mark.asyncio
@@ -291,13 +305,12 @@ async def test_spotify_get_playlist_items_tool():
         "items": [
             {
                 "added_at": "2026-08-01T00:00:00Z",
-                "track": {
+                "item": {
                     "id": "t1",
                     "name": "One More Time",
                     "artists": [{"name": "Daft Punk"}],
                     "album": {"name": "Discovery"},
                     "duration_ms": 320000,
-                    "popularity": 90,
                     "uri": "spotify:track:t1",
                     "is_local": False,
                 },
@@ -316,6 +329,27 @@ async def test_spotify_get_playlist_items_tool():
         assert len(data) == 1
         assert data[0]["name"] == "One More Time"
         assert data[0]["artists"] == ["Daft Punk"]
+        assert "popularity" not in data[0]
+
+
+@pytest.mark.asyncio
+async def test_spotify_get_playlist_items_tool_forbidden_for_not_owned():
+    """403 on /items (playlist not owned/collaborated) maps to a structured, self-healing error (ADR-0001)."""
+    request = httpx.Request("GET", "https://api.spotify.com/v1/playlists/pl_other/items")
+    response = httpx.Response(403, request=request, text='{"error": {"status": 403, "message": "Forbidden"}}')
+
+    with patch("src.tools.playlists.get_spotify_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_client.get_playlist_items = AsyncMock(
+            side_effect=httpx.HTTPStatusError("403", request=request, response=response)
+        )
+        mock_get_client.return_value = mock_client
+
+        data = json.loads(await spotify_get_playlist_items("pl_other"))
+
+        assert data["status"] == "error"
+        assert data["error_code"] == "PLAYLIST_CONTENTS_UNAVAILABLE"
+        assert "own or collaborate" in data["message"]
 
 
 @pytest.mark.asyncio
@@ -368,11 +402,18 @@ async def test_spotify_add_remove_reorder_replace_tools():
         )
 
         # Update details
-        upd_out = await spotify_update_playlist_details("pl1", name="Updated Title", public=True)
+        upd_out = await spotify_update_playlist_details("pl1", name="Updated Title")
         upd_data = json.loads(upd_out)
         assert upd_data["status"] == "success"
-        assert upd_data["updated_fields"]["name"] == "Updated Title"
-        assert upd_data["updated_fields"]["public"] is True
+        assert upd_data["updated_fields"] == {"name": "Updated Title"}
+
+
+def test_playlist_tools_do_not_expose_public_param():
+    """BUG-9: Spotify ignores `public` on create/update, so the tools must not offer it."""
+    import inspect
+
+    assert "public" not in inspect.signature(spotify_create_playlist).parameters
+    assert "public" not in inspect.signature(spotify_update_playlist_details).parameters
 
 
 @pytest.mark.asyncio

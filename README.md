@@ -29,8 +29,7 @@ Here is an overview of what is **currently implemented** versus what is **in the
 | **Queue Control** | `spotify_get_queue` | ✅ Live | Inspect current active playback queue. |
 | | `spotify_add_to_queue` | ✅ Live | Append track or episode URI to the user's queue. |
 | **Catalog & Search** | `spotify_search_catalog` | ✅ Live | Search across tracks, artists, albums, playlists, shows, audiobooks. |
-| | `spotify_get_artist` | ✅ Live | Fetch artist metadata, genres, popularity, and followers. |
-| | `spotify_get_artist_top_tracks` | ✅ Live | Retrieve top 10 tracks for an artist by country code. |
+| | `spotify_get_artist` | ✅ Live | Fetch artist name, URI, Spotify URL, and image. |
 | | `spotify_get_album` | ✅ Live | Get album details and track listings. |
 | **User & Library** | `spotify_get_user_profile` | ✅ Live | Fetch user profile info and subscription tier (Premium/Free). |
 | | `spotify_get_top_tracks` | ✅ Live | Fetch user's top listened tracks over selectable time ranges. |
@@ -50,7 +49,7 @@ Here is an overview of what is **currently implemented** versus what is **in the
 The following capabilities are scheduled across upcoming milestones:
 
 - **🚩 Milestone 4: Full Playlist Management & Custom Cover Art**
-  - [ ] `spotify_create_playlist` (Create public/private playlists with title & description)
+  - [ ] `spotify_create_playlist` (Create playlists with title & description; visibility must be set in the Spotify app)
   - [ ] `spotify_get_user_playlists` (List user's created and followed playlists)
   - [ ] `spotify_get_playlist` & `spotify_get_playlist_items` (Retrieve playlist tracks and metadata)
   - [ ] `spotify_add_tracks_to_playlist` & `spotify_remove_tracks_from_playlist` (Manage tracklist)
@@ -73,6 +72,18 @@ The following capabilities are scheduled across upcoming milestones:
   - [ ] STDIO and HTTP/SSE transport modes.
   - [ ] Pre-packaged configuration templates for **Claude Desktop**, **Cursor**, and **Antigravity**.
   - [ ] End-to-end integration test suite and PyPI distribution package.
+
+---
+
+## ⚠️ Known Spotify API Limitations
+
+These are Spotify-side behaviours, not bugs in this server. Each was confirmed against the live Web API or Spotify's changelog.
+
+- **Playlist visibility can't be set through the API.** Spotify accepts `public: false` on create (`POST /me/playlists`) and update (`PUT /playlists/{id}`) with a `2xx`, but the playlist stays public. The create response even echoes `public: false`. Name and description updates apply normally. For this reason `spotify_create_playlist` and `spotify_update_playlist_details` don't offer a `public` parameter. Set visibility in the Spotify app. ([community thread](https://community.spotify.com/t5/Spotify-for-Developers/Api-to-create-a-private-playlist-doesn-t-work/m-p/6030637/highlight/true))
+- **Playlist contents are only available for playlists you own or collaborate on.** For other playlists, `GET /playlists/{id}` returns metadata only (no `items`) and `GET /playlists/{id}/items` returns `403`. `spotify_get_playlist` returns the metadata with an explanatory `note`, and `spotify_get_playlist_items` returns a `PLAYLIST_CONTENTS_UNAVAILABLE` error.
+- **Artist and track metadata is reduced.** Spotify no longer returns `genres`, `popularity` or `followers` on artists, `popularity` on tracks, or `label` / `popularity` on albums, so the tools don't either. `GET /artists/{id}/top-tracks` now returns `403` and has no replacement, so there is no artist top-tracks tool. Use `spotify_search_catalog` with `artist:"Name"` instead. ([changelog](https://developer.spotify.com/documentation/web-api/references/changes/february-2026))
+- **Playlist search hides some results.** Spotify returns some playlist search results as `null` (about 3 in 10 in live testing) and still counts them in `total`. `spotify_search_catalog` drops them and reports how many it dropped in `playlists_hidden_by_spotify`. A page can be mostly or entirely hidden, so try the next `offset` before concluding there are no matches.
+- **Playlist track counts can lag.** Right after tracks are added, `GET /me/playlists` may still report the old `items.total`, so `tracks_total` from `spotify_get_user_playlists` can be stale. `spotify_get_playlist` reports the current count.
 
 ---
 

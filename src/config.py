@@ -46,6 +46,19 @@ class SpotifySettings(BaseSettings):
         default="Spotify MCP Server",
         description="Display name for the MCP server",
     )
+    mcp_host: str = Field(
+        default="127.0.0.1",
+        description="Host to bind the HTTP transport to",
+    )
+    mcp_port: int = Field(
+        default=8000,
+        description="Port to bind the HTTP transport to",
+    )
+    log_level: str = Field(
+        default="INFO",
+        description="Logging level for spotify_mcp logger (e.g. DEBUG, INFO, WARNING). "
+        "Full tracebacks on tool failures only print at DEBUG.",
+    )
     scopes: list[str] = Field(
         default_factory=lambda: DEFAULT_SPOTIFY_SCOPES,
         description="OAuth scopes required for full Spotify features",

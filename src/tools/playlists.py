@@ -4,7 +4,18 @@ import base64
 import json
 import os
 from typing import List, Optional
+
+import httpx
+
 from src.client import get_spotify_client
+from src.tools.validation import PLAYLIST_ITEMS_MAX_LIMIT, check_paging
+
+# Since Spotify's Feb 2026 API changes, playlist contents are only returned for
+# playlists the current user owns or collaborates on; others are metadata-only.
+_CONTENTS_UNAVAILABLE = (
+    "Playlist contents are only available for playlists you own or collaborate on; "
+    "Spotify returns metadata only for other playlists."
+)
 
 
 def normalize_track_uri(track_id_or_uri: str) -> str:
@@ -39,18 +50,14 @@ def read_and_validate_jpeg_cover(image_path: str) -> str:
 async def spotify_create_playlist(
     name: str,
     description: str = "",
-    public: bool = True,
     collaborative: bool = False,
-    user_id: Optional[str] = None,
 ) -> str:
     """Create a new playlist for the authenticated user.
 
     Args:
         name: Name of the playlist.
         description: Description of the playlist (default "").
-        public: Whether playlist should be public (default True).
         collaborative: Whether playlist should be collaborative (default False).
-        user_id: Optional Spotify user ID. If omitted, automatically resolved from current user profile.
 
     Returns:
         JSON string containing the created playlist's details, ID, URI, and snapshot info.
@@ -59,9 +66,7 @@ async def spotify_create_playlist(
     raw = await client.create_playlist(
         name=name,
         description=description,
-        public=public,
         collaborative=collaborative,
-        user_id=user_id,
     )
 
     formatted = {
@@ -88,6 +93,8 @@ async def spotify_get_user_playlists(limit: int = 20, offset: int = 0) -> str:
     Returns:
         JSON array of user playlists with metadata, track counts, and URIs.
     """
+    if error := check_paging(limit, offset):
+        return error
     client = get_spotify_client()
     raw = await client.get_user_playlists(limit=limit, offset=offset)
 
@@ -100,7 +107,7 @@ async def spotify_get_user_playlists(limit: int = 20, offset: int = 0) -> str:
             "name": item.get("name"),
             "description": item.get("description"),
             "owner": item.get("owner", {}).get("display_name") or item.get("owner", {}).get("id"),
-            "tracks_total": item.get("tracks", {}).get("total", 0),
+            "tracks_total": (item.get("items") or {}).get("total", 0),
             "public": item.get("public"),
             "collaborative": item.get("collaborative"),
             "snapshot_id": item.get("snapshot_id"),
@@ -125,10 +132,10 @@ async def spotify_get_playlist(playlist_id: str, market: Optional[str] = None) -
     client = get_spotify_client()
     raw = await client.get_playlist(clean_id, market=market)
 
-    tracks_data = raw.get("tracks", {})
+    items_data = raw.get("items")
     formatted_tracks = []
-    for item in tracks_data.get("items", []):
-        track = item.get("track")
+    for entry in (items_data or {}).get("items", []):
+        track = entry.get("item")
         if track:
             formatted_tracks.append({
                 "id": track.get("id"),
@@ -136,9 +143,8 @@ async def spotify_get_playlist(playlist_id: str, market: Optional[str] = None) -
                 "artists": [a.get("name") for a in track.get("artists", [])],
                 "album": track.get("album", {}).get("name"),
                 "duration_ms": track.get("duration_ms"),
-                "popularity": track.get("popularity"),
                 "uri": track.get("uri"),
-                "added_at": item.get("added_at"),
+                "added_at": entry.get("added_at"),
             })
 
     images = raw.get("images", [])
@@ -153,12 +159,14 @@ async def spotify_get_playlist(playlist_id: str, market: Optional[str] = None) -
         "public": raw.get("public"),
         "collaborative": raw.get("collaborative"),
         "snapshot_id": raw.get("snapshot_id"),
-        "total_tracks": tracks_data.get("total", len(formatted_tracks)),
+        "total_tracks": items_data.get("total", len(formatted_tracks)) if items_data is not None else None,
         "uri": raw.get("uri"),
         "spotify_url": raw.get("external_urls", {}).get("spotify"),
         "image_url": image_url,
         "tracks": formatted_tracks,
     }
+    if items_data is None:
+        formatted["note"] = _CONTENTS_UNAVAILABLE
     return json.dumps(formatted, indent=2)
 
 
@@ -179,13 +187,27 @@ async def spotify_get_playlist_items(
     Returns:
         JSON array of tracks inside the playlist with duration, artists, album, and added_at info.
     """
+    if error := check_paging(limit, offset, max_limit=PLAYLIST_ITEMS_MAX_LIMIT):
+        return error
     clean_id = playlist_id.replace("spotify:playlist:", "").strip()
     client = get_spotify_client()
-    raw = await client.get_playlist_items(clean_id, limit=limit, offset=offset, market=market)
+    try:
+        raw = await client.get_playlist_items(clean_id, limit=limit, offset=offset, market=market)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 403:
+            raise
+        return json.dumps(
+            {
+                "status": "error",
+                "error_code": "PLAYLIST_CONTENTS_UNAVAILABLE",
+                "message": f"{_CONTENTS_UNAVAILABLE} Call 'spotify_get_playlist' for its metadata.",
+            },
+            indent=2,
+        )
 
     formatted_items = []
-    for item in raw.get("items", []):
-        track = item.get("track")
+    for entry in raw.get("items", []):
+        track = entry.get("item")
         if track:
             formatted_items.append({
                 "id": track.get("id"),
@@ -193,9 +215,8 @@ async def spotify_get_playlist_items(
                 "artists": [a.get("name") for a in track.get("artists", [])],
                 "album": track.get("album", {}).get("name"),
                 "duration_ms": track.get("duration_ms"),
-                "popularity": track.get("popularity"),
                 "uri": track.get("uri"),
-                "added_at": item.get("added_at"),
+                "added_at": entry.get("added_at"),
                 "is_local": track.get("is_local", False),
             })
 
@@ -341,16 +362,14 @@ async def spotify_update_playlist_details(
     playlist_id: str,
     name: Optional[str] = None,
     description: Optional[str] = None,
-    public: Optional[bool] = None,
     collaborative: Optional[bool] = None,
 ) -> str:
-    """Update title, description, or privacy settings of a playlist.
+    """Update title, description, or collaborative setting of a playlist.
 
     Args:
         playlist_id: Spotify playlist ID or URI.
         name: New title of the playlist.
         description: New description of the playlist.
-        public: Set playlist to public (True) or private (False).
         collaborative: Set playlist to collaborative (True) or non-collaborative (False).
 
     Returns:
@@ -362,7 +381,6 @@ async def spotify_update_playlist_details(
         clean_id,
         name=name,
         description=description,
-        public=public,
         collaborative=collaborative,
     )
 
@@ -371,8 +389,6 @@ async def spotify_update_playlist_details(
         updated_fields["name"] = name
     if description is not None:
         updated_fields["description"] = description
-    if public is not None:
-        updated_fields["public"] = public
     if collaborative is not None:
         updated_fields["collaborative"] = collaborative
 
