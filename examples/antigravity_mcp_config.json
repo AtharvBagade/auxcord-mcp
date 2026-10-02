@@ -1,0 +1,13 @@
+{
+  "_comment": "Place this under the 'mcpServers' key of Antigravity's config file: ~/.gemini/config/mcp_config.json (shared), or a workspace-local .agents/mcp_config.json. Same mcpServers shape as Claude Desktop / Cursor, just a different file location.",
+  "mcpServers": {
+    "spotify": {
+      "command": "/absolute/path/to/spotify-mcp-server/.venv/bin/python",
+      "args": [
+        "/absolute/path/to/spotify-mcp-server/main.py",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}
