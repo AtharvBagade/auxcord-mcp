@@ -7,6 +7,8 @@ name = "spotify-mcp-server"
 version = "0.1.0"
 description = "Spotify Model Context Protocol (MCP) Server for LLM Playback Control, Curation & Discovery"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=1.0.0",
