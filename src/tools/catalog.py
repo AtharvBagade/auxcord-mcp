@@ -4,12 +4,19 @@ import json
 from typing import Any
 
 from src.client import get_spotify_client
+from src.tools.validation import (
+    SEARCH_MAX_LIMIT,
+    SEARCH_MAX_WINDOW,
+    SEARCH_TYPES,
+    check_paging,
+    invalid_argument,
+)
 
 
 async def spotify_search_catalog(
     query: str,
     search_types: list[str] | None = None,
-    limit: int = 10,
+    limit: int = 5,
     offset: int = 0,
     market: str | None = None,
 ) -> str:
@@ -18,13 +25,23 @@ async def spotify_search_catalog(
     Args:
         query: Search query string (e.g. "Daft Punk", "Bohemian Rhapsody").
         search_types: Optional list of item types to search ("track", "artist", "album", "playlist", "show", "episode", "audiobook"). Defaults to ["track", "artist", "album"].
-        limit: Number of items per type to return (1-50, default 10).
-        offset: Result offset index (default 0).
+        limit: Number of items per type to return (1-10, default 5).
+        offset: Result offset index (default 0); limit + offset must not exceed 1000.
         market: Optional ISO 3166-1 alpha-2 country code (e.g. "US").
 
     Returns:
         JSON string of matching search items grouped by category.
     """
+    if not query.strip():
+        return invalid_argument("query must not be empty.")
+    if search_types:
+        unknown = [t for t in search_types if t not in SEARCH_TYPES]
+        if unknown:
+            return invalid_argument(f"Invalid search_types {unknown}. Must be any of: {list(SEARCH_TYPES)}.")
+    if error := check_paging(limit, offset, max_limit=SEARCH_MAX_LIMIT):
+        return error
+    if limit + offset > SEARCH_MAX_WINDOW:
+        return invalid_argument(f"limit + offset must not exceed {SEARCH_MAX_WINDOW} (got {limit + offset}).")
     client = get_spotify_client()
     raw_results = await client.search_catalog(
         query=query,
@@ -76,6 +93,7 @@ async def spotify_search_catalog(
         ]
 
     if "playlists" in raw_results:
+        playlist_items = raw_results["playlists"].get("items", [])
         formatted_results["playlists"] = [
             {
                 "id": item.get("id"),
@@ -84,9 +102,14 @@ async def spotify_search_catalog(
                 "tracks_total": (item.get("items") or {}).get("total", 0),
                 "uri": item.get("uri"),
             }
-            for item in raw_results["playlists"].get("items", [])
-            if item  # Spotify returns null entries in playlist search results
+            for item in playlist_items
+            if item
         ]
+        # Spotify returns null entries for playlists it won't show this app. Report the count so a
+        # mostly-hidden page isn't mistaken for "no matches" -- the next offset may still have results.
+        hidden = len(playlist_items) - len(formatted_results["playlists"])
+        if hidden:
+            formatted_results["playlists_hidden_by_spotify"] = hidden
 
     return json.dumps(formatted_results, indent=2)
 
