@@ -8,6 +8,7 @@ from typing import List, Optional
 import httpx
 
 from src.client import get_spotify_client
+from src.tools.validation import PLAYLIST_ITEMS_MAX_LIMIT, check_paging
 
 # Since Spotify's Feb 2026 API changes, playlist contents are only returned for
 # playlists the current user owns or collaborates on; others are metadata-only.
@@ -92,6 +93,8 @@ async def spotify_get_user_playlists(limit: int = 20, offset: int = 0) -> str:
     Returns:
         JSON array of user playlists with metadata, track counts, and URIs.
     """
+    if error := check_paging(limit, offset):
+        return error
     client = get_spotify_client()
     raw = await client.get_user_playlists(limit=limit, offset=offset)
 
@@ -184,6 +187,8 @@ async def spotify_get_playlist_items(
     Returns:
         JSON array of tracks inside the playlist with duration, artists, album, and added_at info.
     """
+    if error := check_paging(limit, offset, max_limit=PLAYLIST_ITEMS_MAX_LIMIT):
+        return error
     clean_id = playlist_id.replace("spotify:playlist:", "").strip()
     client = get_spotify_client()
     try:

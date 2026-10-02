@@ -153,7 +153,7 @@ class SpotifyClient:
         self,
         query: str,
         search_types: list[str] | None = None,
-        limit: int = 10,
+        limit: int = 5,
         offset: int = 0,
         market: str | None = None,
     ) -> dict[str, Any]:

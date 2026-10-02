@@ -155,3 +155,25 @@ async def test_spotify_get_album():
         assert len(data["tracks"]) == 1
         assert data["tracks"][0]["name"] == "One More Time"
         assert not {"label", "popularity"} & data.keys()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "items, expected_visible, expected_hidden",
+    [
+        ([None, {"id": "p1", "name": "A", "owner": {}, "uri": "u1"}, None], 1, 2),
+        ([None, None, None, None, None], 0, 5),  # a fully hidden page must not look like "no matches"
+        ([{"id": "p1", "name": "A", "owner": {}, "uri": "u1"}], 1, None),
+    ],
+)
+async def test_search_reports_playlists_hidden_by_spotify(items, expected_visible, expected_hidden):
+    """Spotify returns null entries for playlists it won't show this app; surface how many were dropped."""
+    with patch("src.tools.catalog.get_spotify_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_client.search_catalog = AsyncMock(return_value={"playlists": {"items": items}})
+        mock_get_client.return_value = mock_client
+
+        data = json.loads(await spotify_search_catalog("Daft Punk", search_types=["playlist"]))
+
+    assert len(data["playlists"]) == expected_visible
+    assert data.get("playlists_hidden_by_spotify") == expected_hidden

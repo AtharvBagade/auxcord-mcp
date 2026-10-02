@@ -3,6 +3,7 @@
 from fastmcp import FastMCP
 from src.config import load_settings
 from src.lib.logger import log_tool_calls, set_transport_mode
+from src.tools.validation import structured_bad_request
 from src.tools.users import (
     spotify_get_user_profile,
     spotify_get_top_tracks,
@@ -55,8 +56,8 @@ mcp = FastMCP(name=settings.mcp_server_name)
 
 
 def register_tool(mcp: FastMCP, fn):
-    """Wrap fn with call logging (hook B) then register it with FastMCP."""
-    mcp.add_tool(log_tool_calls(fn))
+    """Wrap fn with call logging (hook B) and structured 400 handling, then register it with FastMCP."""
+    mcp.add_tool(log_tool_calls(structured_bad_request(fn)))
 
 
 # Register Modular Tools - Users & Library
