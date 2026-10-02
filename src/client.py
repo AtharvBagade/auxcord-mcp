@@ -5,7 +5,15 @@ from typing import Any
 
 from src.auth import SpotifyAuthManager
 from src.config import load_settings
-from src.lib.http import HTTPClient, get_http_client
+from src.lib.http import (
+    HTTPClient,
+    HTTPStatusError,
+    NetworkError,
+    RequestError,
+    TimeoutException,
+    get_http_client,
+)
+from src.lib.logger import log_api_error
 
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
 
@@ -53,38 +61,69 @@ class SpotifyClient:
         if headers:
             req_headers.update(headers)
 
-        response = await self.http_client.request(
-            method=method.upper(),
-            url=url,
-            headers=req_headers,
-            params=params,
-            json=json_data,
-            data=data,
-        )
+        payload = json_data if json_data is not None else data
 
-        # Retry once on 401 Unauthorized by forcing a token refresh
-        if response.status_code == 401:
-            token_data = self.auth_manager.load_token_cache()
-            if token_data and "refresh_token" in token_data:
-                self.auth_manager.refresh_access_token(token_data["refresh_token"])
-                new_token = self.auth_manager.get_valid_access_token()
-                req_headers["Authorization"] = f"Bearer {new_token}"
-                response = await self.http_client.request(
-                    method=method.upper(),
-                    url=url,
-                    headers=req_headers,
-                    params=params,
-                    json=json_data,
-                    data=data,
-                )
+        try:
+            response = await self.http_client.request(
+                method=method.upper(),
+                url=url,
+                headers=req_headers,
+                params=params,
+                json=json_data,
+                data=data,
+            )
 
-        response.raise_for_status()
+            # Retry once on 401 Unauthorized by forcing a token refresh
+            if response.status_code == 401:
+                token_data = self.auth_manager.load_token_cache()
+                if token_data and "refresh_token" in token_data:
+                    self.auth_manager.refresh_access_token(token_data["refresh_token"])
+                    new_token = self.auth_manager.get_valid_access_token()
+                    req_headers["Authorization"] = f"Bearer {new_token}"
+                    response = await self.http_client.request(
+                        method=method.upper(),
+                        url=url,
+                        headers=req_headers,
+                        params=params,
+                        json=json_data,
+                        data=data,
+                    )
+
+            response.raise_for_status()
+        except HTTPStatusError as exc:
+            log_api_error(
+                method=method,
+                endpoint=endpoint,
+                status_code=response.status_code,
+                error_message=response.text,
+                params=params,
+                payload=payload,
+            )
+            raise
+        except (RequestError, TimeoutException, NetworkError) as exc:
+            log_api_error(
+                method=method,
+                endpoint=endpoint,
+                status_code=None,
+                error_message=str(exc),
+                params=params,
+                payload=payload,
+            )
+            raise
+
         if response.status_code in (202, 204) or not len(response.text):
             return {}
         try:
             return response.json()
         except (ValueError, json.JSONDecodeError) as exc:
-            print(f"JSON parse error from Spotify API: {exc}")
+            log_api_error(
+                method=method,
+                endpoint=endpoint,
+                status_code=response.status_code,
+                error_message=f"JSON parse error: {exc}",
+                params=params,
+                payload=payload,
+            )
             raise ValueError("Invalid JSON response from Spotify API")
 
     async def get_user_profile(self) -> dict[str, Any]:

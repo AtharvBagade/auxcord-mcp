@@ -10,6 +10,8 @@ from typing import Any, Self
 
 import httpx
 
+from src.lib.logger import logger
+
 
 class HTTPClientError(Exception):
     """Base exception class for HTTP client library errors."""
@@ -133,7 +135,7 @@ class HTTPClient:
         try:
             return response.json()
         except (ValueError, json.JSONDecodeError) as exc:
-            print(f"JSON parse error from Spotify API: {exc}")
+            logger.error("JSON parse error from Spotify API: %s", exc)
             raise ValueError("Invalid JSON response from Spotify API")
 
 
@@ -246,7 +248,7 @@ class SyncHTTPClient:
         try:
             return response.json()
         except (ValueError, json.JSONDecodeError) as exc:
-            print(f"JSON parse error from Spotify API: {exc}")
+            logger.error("JSON parse error from Spotify API: %s", exc)
             raise ValueError("Invalid JSON response from Spotify API")
 
 

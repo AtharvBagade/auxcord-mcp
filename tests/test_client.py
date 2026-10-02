@@ -1,8 +1,10 @@
 """Unit tests for SpotifyClient and user tools."""
 
 import json
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from src.client import SpotifyClient
@@ -159,4 +161,154 @@ async def test_client_empty_and_no_content_responses():
 
     res2 = await client.request("PUT", "/me/player/shuffle", params={"state": "true"})
     assert res2 == {}
+
+
+# --- Hook A: source-level Spotify API error logging ------------------------
+
+
+def _make_401_free_response(status_code: int, text: str = "") -> MagicMock:
+    """Build a MagicMock httpx.Response-like object that isn't a 401."""
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.text = text
+    resp.content = text.encode()
+    return resp
+
+
+@pytest.mark.asyncio
+async def test_request_logs_http_status_error(caplog):
+    """Hook A logs a verbose ERROR block on httpx.HTTPStatusError and re-raises."""
+    mock_auth_manager = MagicMock()
+    mock_auth_manager.get_valid_access_token.return_value = "mock_token"
+
+    resp = _make_401_free_response(404, text='{"error": {"status": 404, "message": "Device not found"}}')
+    http_request = httpx.Request("PUT", "https://api.spotify.com/v1/me/player/play")
+    real_response = httpx.Response(404, request=http_request, text=resp.text)
+    resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "404 error", request=http_request, response=real_response
+    )
+    resp.status_code = 404
+
+    mock_http = AsyncMock()
+    mock_http.request = AsyncMock(return_value=resp)
+
+    client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
+
+    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.request("PUT", "/me/player/play", params={"device_id": None})
+
+    assert any(
+        "SPOTIFY_API_FAILURE" in record.message
+        and "PUT" in record.message
+        and "/me/player/play" in record.message
+        and "404" in record.message
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_request_logs_network_error(caplog):
+    """Hook A logs a verbose ERROR block on network/timeout failures and re-raises."""
+    mock_auth_manager = MagicMock()
+    mock_auth_manager.get_valid_access_token.return_value = "mock_token"
+
+    mock_http = AsyncMock()
+    mock_http.request = AsyncMock(side_effect=httpx.ConnectTimeout("connection timed out"))
+
+    client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
+
+    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+        with pytest.raises(httpx.ConnectTimeout):
+            await client.request("GET", "/me")
+
+    assert any(
+        "SPOTIFY_API_FAILURE" in record.message and "status=N/A" in record.message
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_request_logs_json_parse_error(caplog):
+    """Hook A logs a verbose ERROR block on an invalid JSON body and raises ValueError."""
+    mock_auth_manager = MagicMock()
+    mock_auth_manager.get_valid_access_token.return_value = "mock_token"
+
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.text = "not json"
+    resp.content = b"not json"
+    resp.raise_for_status.return_value = None
+    resp.json.side_effect = json.JSONDecodeError("Expecting value", "not json", 0)
+
+    mock_http = AsyncMock()
+    mock_http.request = AsyncMock(return_value=resp)
+
+    client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
+
+    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+        with pytest.raises(ValueError, match="Invalid JSON response"):
+            await client.request("GET", "/me")
+
+    assert any("SPOTIFY_API_FAILURE" in record.message and "JSON parse error" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_request_no_error_log_on_success(caplog):
+    """Hook A does not log an ERROR when the request succeeds."""
+    mock_auth_manager = MagicMock()
+    mock_auth_manager.get_valid_access_token.return_value = "mock_token"
+
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.text = '{"id": "abc"}'
+    resp.content = resp.text.encode()
+    resp.raise_for_status.return_value = None
+    resp.json.return_value = {"id": "abc"}
+
+    mock_http = AsyncMock()
+    mock_http.request = AsyncMock(return_value=resp)
+
+    client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
+
+    with caplog.at_level(logging.ERROR, logger="spotify_mcp"):
+        result = await client.request("GET", "/me")
+
+    assert result == {"id": "abc"}
+    assert not any("SPOTIFY_API_FAILURE" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_request_401_retry_path_unaffected():
+    """The existing 401-retry-then-succeed path still works with hook A wrapping request()."""
+    mock_auth_manager = MagicMock()
+    mock_auth_manager.get_valid_access_token.return_value = "old_token"
+    mock_auth_manager.load_token_cache.return_value = {"refresh_token": "refresh123"}
+    mock_auth_manager.refresh_access_token = MagicMock()
+
+    resp_401 = MagicMock()
+    resp_401.status_code = 401
+    resp_401.text = "Unauthorized"
+    resp_401.content = b"Unauthorized"
+
+    resp_ok = MagicMock()
+    resp_ok.status_code = 200
+    resp_ok.text = '{"id": "abc"}'
+    resp_ok.content = resp_ok.text.encode()
+    resp_ok.raise_for_status.return_value = None
+    resp_ok.json.return_value = {"id": "abc"}
+
+    # After refresh, get_valid_access_token should return the new token.
+    mock_auth_manager.get_valid_access_token.side_effect = ["old_token", "new_token"]
+
+    mock_http = AsyncMock()
+    mock_http.request = AsyncMock(side_effect=[resp_401, resp_ok])
+
+    client = SpotifyClient(auth_manager=mock_auth_manager, http_client=mock_http)
+
+    result = await client.request("GET", "/me")
+
+    assert result == {"id": "abc"}
+    mock_auth_manager.refresh_access_token.assert_called_once_with("refresh123")
+    assert mock_http.request.await_count == 2
 

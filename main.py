@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from src.config import load_settings
+from src.lib.logger import set_transport_mode
 from src.mcp_server import mcp
 
 console = Console()
@@ -32,8 +33,10 @@ def main():
     args = parser.parse_args()
 
     if args.stdio:
+        set_transport_mode("stdio")
         mcp.run(transport="stdio")
     else:
+        set_transport_mode("http")
         display_header()
         settings = load_settings()
         console.print(f"[bold white]Server Name:[/bold white] {settings.mcp_server_name}")
