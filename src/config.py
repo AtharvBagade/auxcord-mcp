@@ -1,7 +1,13 @@
 """Configuration settings for Auxcord."""
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve .env against the project root, not the working directory: MCP clients often
+# launch the server from elsewhere (e.g. `/` or the open workspace).
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Full set of OAuth scopes required for Auxcord features
 DEFAULT_SPOTIFY_SCOPES: list[str] = [
@@ -65,7 +71,7 @@ class SpotifySettings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )

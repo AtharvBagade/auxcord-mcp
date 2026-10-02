@@ -49,28 +49,76 @@ These are limits on Spotify's side, not bugs in this server. Each was confirmed 
 
 ## Usage
 
-After [installing](#installation), add the server to your MCP client. For Claude Desktop, edit `claude_desktop_config.json`:
+After [installing](#installation), add the server to your MCP client. Every client launches the same command, `/path/to/auxcord-mcp/.venv/bin/auxcord-mcp`. Replace `/path/to` with where you cloned the repo.
+
+Then restart the client and ask something like *"What's playing right now? Add two similar tracks to my queue."*
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json` (Settings > Developer > Edit Config):
 
 ```json
 {
   "mcpServers": {
     "auxcord": {
-      "command": "/path/to/auxcord-mcp/.venv/bin/python",
-      "args": ["/path/to/auxcord-mcp/main.py"]
+      "command": "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
     }
   }
 }
 ```
 
-Restart the client and ask something like *"What's playing right now? Add two similar tracks to my queue."*
+### Cursor
 
-To serve over streamable HTTP instead, for remote or multi-client setups:
+Edit `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project):
 
-```bash
-python main.py --transport http   # serves http://127.0.0.1:8000/mcp
+```json
+{
+  "mcpServers": {
+    "auxcord": {
+      "command": "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
+    }
+  }
+}
 ```
 
-Then point your client at `http://127.0.0.1:8000/mcp`. Use `--host` and `--port` to change the address.
+### Codex
+
+Edit `~/.codex/config.toml` (all projects) or `.codex/config.toml` (one project):
+
+```toml
+[mcp_servers.auxcord]
+command = "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
+```
+
+### Antigravity
+
+Edit `~/.gemini/antigravity/mcp_config.json` (Agent panel > MCP Servers > Manage MCP Servers > View raw config):
+
+```json
+{
+  "mcpServers": {
+    "auxcord": {
+      "command": "/path/to/auxcord-mcp/.venv/bin/auxcord-mcp"
+    }
+  }
+}
+```
+
+### Streamable HTTP
+
+To run one server that several clients share, start it over HTTP:
+
+```bash
+auxcord-mcp --transport http   # serves http://127.0.0.1:8000/mcp
+```
+
+Use `--host` and `--port` to change the address. Then point your client at the URL instead of a command:
+
+| Client | Config |
+|---|---|
+| Cursor | `"auxcord": { "url": "http://127.0.0.1:8000/mcp" }` |
+| Codex | `[mcp_servers.auxcord]` with `url = "http://127.0.0.1:8000/mcp"` |
+| Antigravity | `"auxcord": { "serverUrl": "http://127.0.0.1:8000/mcp" }` |
 
 ## Installation
 
