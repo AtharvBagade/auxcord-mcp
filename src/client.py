@@ -264,6 +264,149 @@ class SpotifyClient:
             params["device_id"] = device_id
         return await self.request("POST", "/me/player/queue", params=params)
 
+    # --- Playlist Management Methods ---
+
+    async def create_playlist(
+        self,
+        name: str,
+        description: str = "",
+        public: bool = True,
+        collaborative: bool = False,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a playlist for a user (`POST /v1/users/{user_id}/playlists`)."""
+        if not user_id:
+            profile = await self.get_user_profile()
+            user_id = profile["id"]
+
+        payload: dict[str, Any] = {
+            "name": name,
+            "description": description,
+            "public": public,
+            "collaborative": collaborative,
+        }
+        return await self.request("POST", f"/users/{user_id}/playlists", json_data=payload)
+
+    async def get_user_playlists(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """Fetch user's playlists (`GET /v1/me/playlists`)."""
+        params = {"limit": limit, "offset": offset}
+        return await self.request("GET", "/me/playlists", params=params)
+
+    async def get_playlist(
+        self,
+        playlist_id: str,
+        market: str | None = None,
+        fields: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch playlist metadata and tracks (`GET /v1/playlists/{playlist_id}`)."""
+        params: dict[str, Any] = {}
+        if market:
+            params["market"] = market
+        if fields:
+            params["fields"] = fields
+        return await self.request("GET", f"/playlists/{playlist_id}", params=params or None)
+
+    async def get_playlist_items(
+        self,
+        playlist_id: str,
+        limit: int = 50,
+        offset: int = 0,
+        market: str | None = None,
+        fields: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch items of a playlist (`GET /v1/playlists/{playlist_id}/tracks`)."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if market:
+            params["market"] = market
+        if fields:
+            params["fields"] = fields
+        return await self.request("GET", f"/playlists/{playlist_id}/tracks", params=params)
+
+    async def add_tracks_to_playlist(
+        self,
+        playlist_id: str,
+        uris: list[str],
+        position: int | None = None,
+    ) -> dict[str, Any]:
+        """Add tracks or episodes to a playlist (`POST /v1/playlists/{playlist_id}/tracks`)."""
+        payload: dict[str, Any] = {"uris": uris}
+        if position is not None:
+            payload["position"] = position
+        return await self.request("POST", f"/playlists/{playlist_id}/tracks", json_data=payload)
+
+    async def remove_tracks_from_playlist(
+        self,
+        playlist_id: str,
+        uris: list[str],
+        snapshot_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Remove tracks or episodes from a playlist (`DELETE /v1/playlists/{playlist_id}/tracks`)."""
+        payload: dict[str, Any] = {"tracks": [{"uri": uri} for uri in uris]}
+        if snapshot_id:
+            payload["snapshot_id"] = snapshot_id
+        return await self.request("DELETE", f"/playlists/{playlist_id}/tracks", json_data=payload)
+
+    async def reorder_playlist_tracks(
+        self,
+        playlist_id: str,
+        range_start: int,
+        insert_before: int,
+        range_length: int = 1,
+        snapshot_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Reorder tracks in a playlist (`PUT /v1/playlists/{playlist_id}/tracks`)."""
+        payload: dict[str, Any] = {
+            "range_start": range_start,
+            "insert_before": insert_before,
+            "range_length": range_length,
+        }
+        if snapshot_id:
+            payload["snapshot_id"] = snapshot_id
+        return await self.request("PUT", f"/playlists/{playlist_id}/tracks", json_data=payload)
+
+    async def replace_playlist_tracks(
+        self,
+        playlist_id: str,
+        uris: list[str],
+    ) -> dict[str, Any]:
+        """Replace all tracks in a playlist (`PUT /v1/playlists/{playlist_id}/tracks`)."""
+        payload = {"uris": uris}
+        return await self.request("PUT", f"/playlists/{playlist_id}/tracks", json_data=payload)
+
+    async def update_playlist_details(
+        self,
+        playlist_id: str,
+        name: str | None = None,
+        public: bool | None = None,
+        collaborative: bool | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        """Update playlist details (`PUT /v1/playlists/{playlist_id}`)."""
+        payload: dict[str, Any] = {}
+        if name is not None:
+            payload["name"] = name
+        if public is not None:
+            payload["public"] = public
+        if collaborative is not None:
+            payload["collaborative"] = collaborative
+        if description is not None:
+            payload["description"] = description
+        return await self.request("PUT", f"/playlists/{playlist_id}", json_data=payload)
+
+    async def upload_playlist_cover_image(
+        self,
+        playlist_id: str,
+        base64_image_data: str,
+    ) -> dict[str, Any]:
+        """Upload custom JPEG cover image to a playlist (`PUT /v1/playlists/{playlist_id}/images`)."""
+        return await self.request(
+            "PUT",
+            f"/playlists/{playlist_id}/images",
+            headers={"Content-Type": "image/jpeg"},
+            data=base64_image_data,
+        )
+
+
 
 
 

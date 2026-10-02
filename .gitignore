@@ -13,3 +13,8 @@ ENV/
 dist/
 build/
 .pytest_cache/
+
+# Spotify OAuth token cache
+.spotify_token.json
+spotify_token.json
+*.spotify_token.json

@@ -35,6 +35,18 @@ from src.tools.queue import (
     spotify_get_queue,
     spotify_add_to_queue,
 )
+from src.tools.playlists import (
+    spotify_create_playlist,
+    spotify_get_user_playlists,
+    spotify_get_playlist,
+    spotify_get_playlist_items,
+    spotify_add_tracks_to_playlist,
+    spotify_remove_tracks_from_playlist,
+    spotify_reorder_playlist_tracks,
+    spotify_replace_playlist_tracks,
+    spotify_update_playlist_details,
+    spotify_upload_playlist_cover,
+)
 
 settings = load_settings()
 
@@ -74,6 +86,18 @@ mcp.add_tool(spotify_transfer_playback)
 mcp.add_tool(spotify_get_queue)
 mcp.add_tool(spotify_add_to_queue)
 
+# Register Modular Tools - Playlist Management & Curation
+mcp.add_tool(spotify_create_playlist)
+mcp.add_tool(spotify_get_user_playlists)
+mcp.add_tool(spotify_get_playlist)
+mcp.add_tool(spotify_get_playlist_items)
+mcp.add_tool(spotify_add_tracks_to_playlist)
+mcp.add_tool(spotify_remove_tracks_from_playlist)
+mcp.add_tool(spotify_reorder_playlist_tracks)
+mcp.add_tool(spotify_replace_playlist_tracks)
+mcp.add_tool(spotify_update_playlist_details)
+mcp.add_tool(spotify_upload_playlist_cover)
+
 
 # Ambient MCP Resources - User Context
 @mcp.resource("spotify://user/profile")
@@ -107,6 +131,13 @@ async def get_player_queue_resource() -> str:
     return await spotify_get_queue()
 
 
+# Ambient MCP Resources - Playlist Context
+@mcp.resource("spotify://playlist/{playlist_id}")
+async def get_playlist_resource(playlist_id: str) -> str:
+    """Full tracklist and metadata snapshot context for a specific playlist."""
+    return await spotify_get_playlist(playlist_id)
+
+
 def run_server():
     """Run the FastMCP server via STDIO transport."""
     mcp.run(transport="stdio")
@@ -114,3 +145,4 @@ def run_server():
 
 if __name__ == "__main__":
     run_server()
+
